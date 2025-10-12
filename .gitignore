@@ -1,0 +1,5 @@
+.DS_Store
+anaconda_projects
+.ipynb_checkpoints
+.idea
+pm4py

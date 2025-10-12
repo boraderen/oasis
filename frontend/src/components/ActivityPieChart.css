@@ -1,0 +1,297 @@
+/* Pie Chart Container */
+.pie-chart-container {
+  margin-top: 2rem;
+}
+
+.pie-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.pie-chart-title {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #2c3e50;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.reset-activities-btn {
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 300;
+}
+
+.reset-activities-btn:hover:not(:disabled) {
+  background-color: #34495e;
+  transform: translateY(-1px);
+}
+
+.reset-activities-btn:disabled {
+  background-color: #7f8c8d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Pie Chart Content Layout */
+.pie-chart-content {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.pie-chart-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.pie-chart-svg {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Pie Segments */
+.pie-segment {
+  transition: all 0.2s ease;
+}
+
+.pie-segment:hover {
+  filter: brightness(1.1);
+  transform-origin: 150px 150px;
+  transform: scale(1.05);
+}
+
+.pie-segment.hovered {
+  filter: brightness(1.15);
+  transform-origin: 150px 150px;
+  transform: scale(1.08);
+}
+
+/* Center Text */
+.center-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.center-subtext {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Tooltip */
+.pie-tooltip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(44, 62, 80, 0.95);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  pointer-events: none;
+  min-width: 120px;
+}
+
+.tooltip-title {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  font-size: 1rem;
+}
+
+.tooltip-percentage {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #3498db;
+  margin-bottom: 0.2rem;
+}
+
+.tooltip-frequency {
+  font-size: 0.8rem;
+  color: #bdc3c7;
+}
+
+/* Activity Controls */
+.activity-controls {
+  flex: 1;
+  min-width: 0;
+}
+
+.controls-title {
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: #2c3e50;
+  margin: 0 0 1.5rem 0;
+  letter-spacing: 0.5px;
+}
+
+.activity-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.activity-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.activity-checkbox:hover {
+  background-color: #f8f9fa;
+  border-color: #e0e0e0;
+}
+
+.activity-checkbox.hidden {
+  opacity: 0.5;
+}
+
+.activity-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid #e0e0e0;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.activity-checkbox input[type="checkbox"]:checked + .checkbox-indicator {
+  border-color: #2c3e50;
+}
+
+.activity-checkbox input[type="checkbox"]:checked + .checkbox-indicator::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.activity-name {
+  font-weight: 500;
+  color: #2c3e50;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.activity-percentage {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+/* Scrollbar Styling */
+.activity-checkboxes::-webkit-scrollbar {
+  width: 6px;
+}
+
+.activity-checkboxes::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.activity-checkboxes::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.activity-checkboxes::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .pie-chart-content {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .pie-chart-wrapper {
+    margin-bottom: 2rem;
+  }
+  
+  .pie-chart-svg {
+    width: 300px;
+    height: 300px;
+  }
+  
+  .activity-controls {
+    width: 100%;
+  }
+  
+  .activity-checkboxes {
+    max-height: 300px;
+  }
+  
+  .pie-chart-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .reset-activities-btn {
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .pie-chart-container {
+    padding: 1.5rem;
+  }
+  
+  .pie-chart-svg {
+    width: 250px;
+    height: 250px;
+  }
+  
+  .activity-checkbox {
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+  
+  .checkbox-indicator {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .activity-name {
+    font-size: 0.9rem;
+  }
+  
+  .activity-percentage {
+    font-size: 0.8rem;
+  }
+}

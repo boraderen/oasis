@@ -1,0 +1,7 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+pandas==2.0.3
+pm4py==2.7.9
+# PM4Py Extension dependencies
+typing-extensions>=4.0.0

@@ -1,0 +1,326 @@
+/* Trace Variant Pie Chart Container */
+.variant-pie-chart-container {
+  margin-top: 2rem;
+}
+
+.variant-pie-chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.variant-pie-chart-title {
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #2c3e50;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.reset-variants-btn {
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 300;
+}
+
+.reset-variants-btn:hover:not(:disabled) {
+  background-color: #34495e;
+  transform: translateY(-1px);
+}
+
+.reset-variants-btn:disabled {
+  background-color: #7f8c8d;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Trace Variant Pie Chart Content Layout */
+.variant-pie-chart-content {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+.variant-pie-chart-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.variant-pie-chart-svg {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Trace Variant Pie Segments */
+.variant-pie-segment {
+  transition: all 0.2s ease;
+}
+
+.variant-pie-segment:hover {
+  filter: brightness(1.1);
+  transform-origin: 200px 200px;
+  transform: scale(1.05);
+}
+
+.variant-pie-segment.hovered {
+  filter: brightness(1.15);
+  transform-origin: 200px 200px;
+  transform: scale(1.08);
+}
+
+/* Center Text */
+.variant-center-text {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+}
+
+.variant-center-subtext {
+  font-size: 0.9rem;
+  font-weight: 300;
+  color: #7f8c8d;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Tooltip */
+.variant-pie-tooltip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(44, 62, 80, 0.95);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+  pointer-events: none;
+  min-width: 150px;
+  max-width: 250px;
+}
+
+.variant-tooltip-title {
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.variant-tooltip-percentage {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #3498db;
+  margin-bottom: 0.2rem;
+}
+
+.variant-tooltip-frequency {
+  font-size: 0.8rem;
+  color: #bdc3c7;
+  margin-bottom: 0.5rem;
+}
+
+.variant-tooltip-activities {
+  font-size: 0.75rem;
+  color: #ecf0f1;
+  font-style: italic;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* Variant Controls */
+.variant-controls {
+  flex: 1;
+  min-width: 0;
+}
+
+.variant-controls-title {
+  font-size: 1.2rem;
+  font-weight: 400;
+  color: #2c3e50;
+  margin: 0 0 1.5rem 0;
+  letter-spacing: 0.5px;
+}
+
+.variant-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.variant-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  padding: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.variant-checkbox:hover {
+  background-color: #f8f9fa;
+  border-color: #e0e0e0;
+}
+
+.variant-checkbox.hidden {
+  opacity: 0.5;
+}
+
+.variant-checkbox input[type="checkbox"] {
+  display: none;
+}
+
+.variant-checkbox-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid #e0e0e0;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  position: relative;
+  margin-top: 2px;
+}
+
+.variant-checkbox input[type="checkbox"]:checked + .variant-checkbox-indicator {
+  border-color: #2c3e50;
+}
+
+.variant-checkbox input[type="checkbox"]:checked + .variant-checkbox-indicator::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.variant-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.variant-name {
+  font-weight: 500;
+  color: #2c3e50;
+  word-break: break-word;
+  line-height: 1.3;
+  font-size: 0.9rem;
+}
+
+.variant-activities {
+  font-size: 0.75rem;
+  color: #7f8c8d;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.2;
+  margin: 0.2rem 0;
+  word-break: break-word;
+}
+
+.variant-percentage {
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  font-weight: 400;
+}
+
+/* Scrollbar Styling */
+.variant-checkboxes::-webkit-scrollbar {
+  width: 6px;
+}
+
+.variant-checkboxes::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.variant-checkboxes::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.variant-checkboxes::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .variant-pie-chart-content {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .variant-pie-chart-wrapper {
+    margin-bottom: 2rem;
+  }
+  
+  .variant-pie-chart-svg {
+    width: 300px;
+    height: 300px;
+  }
+  
+  .variant-controls {
+    width: 100%;
+  }
+  
+  .variant-checkboxes {
+    max-height: 300px;
+  }
+  
+  .variant-pie-chart-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+  
+  .reset-variants-btn {
+    align-self: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .variant-pie-chart-container {
+    padding: 1.5rem;
+  }
+  
+  .variant-pie-chart-svg {
+    width: 250px;
+    height: 250px;
+  }
+  
+  .variant-checkbox {
+    padding: 0.6rem;
+    gap: 0.6rem;
+  }
+  
+  .variant-checkbox-indicator {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .variant-name {
+    font-size: 0.8rem;
+  }
+  
+  .variant-percentage {
+    font-size: 0.75rem;
+  }
+}
