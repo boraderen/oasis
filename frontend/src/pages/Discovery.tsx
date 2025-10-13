@@ -1,62 +1,87 @@
 import { useNavigate } from 'react-router-dom'
-import { useState, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import './Page.css'
 import ViewAlpha from '../components/ViewAlpha'
 import ViewILP from '../components/ViewILP'
 import ViewHeuristics from '../components/ViewHeuristics'
 import ViewInductive from '../components/ViewInductive'
 
+interface LogItem {
+  filename: string
+  upload_date: string
+  num_events: number
+  num_cases: number
+  num_activities: number
+  num_trace_variants: number
+}
+
 interface DiscoveryData {
   message: string
-  filename: string
+  log_metadata: any
+  train_stats: any
+  test_stats: any
   status: string
 }
 
 function Discovery() {
   const navigate = useNavigate()
-  const [uploading, setUploading] = useState(false)
+  const [logs, setLogs] = useState<LogItem[]>([])
+  const [selectedLogIndex, setSelectedLogIndex] = useState(-1)
   const [discoveryData, setDiscoveryData] = useState<DiscoveryData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  // Fetch logs on component mount
+  useEffect(() => {
+    fetchLogs()
+  }, [])
 
-    setUploading(true)
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/logs')
+      const result = await response.json()
+      if (result.status === 'success') {
+        setLogs(result.logs)
+      }
+    } catch (err) {
+      console.error('Failed to fetch logs:', err)
+    }
+  }
+
+  const handleDiscover = async () => {
+    if (selectedLogIndex === -1) {
+      setError('Please select a log to discover from')
+      return
+    }
+    
     setError(null)
     setSuccessMessage(null)
     setDiscoveryData(null)
 
-    const formData = new FormData()
-    formData.append('file', file)
-
     try {
-      const response = await fetch('http://localhost:8000/api/upload_log', {
+      const response = await fetch(`http://localhost:8000/api/discover_alpha`, {
         method: 'POST',
-        body: formData,
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          log_index: selectedLogIndex.toString()
+        })
       })
 
       const result = await response.json()
       
       if (result.status === 'success') {
-        console.log('Received data:', result) // Debug log
         setDiscoveryData(result)
-        setSuccessMessage(`Successfully uploaded and processed ${result.filename}`)
+        setSuccessMessage(`Discovery completed for ${result.log_metadata.filename}`)
       } else {
-        setError(result.message || 'Upload failed')
+        setError(result.message || 'Discovery failed')
       }
     } catch (err) {
       setError('Failed to connect to server')
-    } finally {
-      setUploading(false)
     }
   }
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click()
-  }
 
   return (
     <div className="page">
@@ -67,54 +92,43 @@ function Discovery() {
         onClick={() => navigate('/')}
       />
       <h1 className="page-title">Discovery</h1>
-      <div className="page-description">
-        <p className="page-content">
-          <strong>Process Discovery Tool:</strong> Upload an event log (.xes or .csv) to automatically discover process models using four different algorithms. Each algorithm reveals different aspects of your process structure.
-        </p>
-        <div className="info-section">
-          <h3>Available Algorithms:</h3>
-          <ul>
-            <li><strong>Alpha Miner:</strong> Discovers basic process structure from event sequences</li>
-            <li><strong>ILP Miner:</strong> Uses Integer Linear Programming for optimal model discovery</li>
-            <li><strong>Heuristics Miner:</strong> Handles noise and infrequent behavior patterns</li>
-            <li><strong>Inductive Miner:</strong> Creates sound models with configurable noise thresholds</li>
-          </ul>
-        </div>
-        <div className="info-section">
-          <h3>Metrics Explained:</h3>
-          <ul>
-            <li><strong>Fitness:</strong> How well the model fits the observed behavior (higher = better)</li>
-            <li><strong>Precision:</strong> How specific the model is to the observed behavior (higher = less overfitting)</li>
-            <li><strong>F1-Measure:</strong> Harmonic mean of fitness and precision (balanced quality metric)</li>
-            <li><strong>Simplicity:</strong> Number of cases in the log (process instance count)</li>
-          </ul>
-        </div>
-        <div className="info-section">
-          <h3>How to Use:</h3>
-          <ol>
-            <li>Upload your event log file</li>
-            <li>Adjust algorithm parameters using the sliders (if available)</li>
-            <li>Click "Discover" to generate the process model</li>
-            <li>Compare metrics across algorithms to find the best model for your data</li>
-          </ol>
-        </div>
-      </div>
+      <p className="page-description">
+        Automatically discover process models from event logs using four different mining algorithms. 
+        The log is split into training (80%) and test (20%) data for proper evaluation. 
+        Compare fitness, precision, and F1-score across algorithms to find the best model for your process.
+      </p>
       
       <div className="upload-section">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleUpload}
-          accept=".xes,.csv"
-          style={{ display: 'none' }}
-        />
-        <button 
-          className="upload-button"
-          onClick={triggerFileInput}
-          disabled={uploading}
-        >
-          {uploading ? 'Processing...' : 'Upload Event Log'}
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
+          <select 
+            className="log-selector"
+            value={selectedLogIndex}
+            onChange={(e) => setSelectedLogIndex(parseInt(e.target.value))}
+            disabled={logs.length === 0}
+          >
+            <option value={-1}>-- Select a log --</option>
+            {logs.map((log, index) => (
+              <option key={index} value={index}>
+                {log.filename} ({log.num_events} events, {log.num_cases} cases)
+              </option>
+            ))}
+          </select>
+          <button 
+            className="upload-button"
+            onClick={handleDiscover}
+            disabled={selectedLogIndex === -1 || logs.length === 0}
+          >
+            Discover Models
+          </button>
+        </div>
+        {logs.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#7f8c8d', marginTop: '1rem' }}>
+            No logs uploaded yet. Go to the <span 
+              style={{ color: '#3498db', cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={() => navigate('/data')}
+            >Data page</span> to upload a log first.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -132,10 +146,10 @@ function Discovery() {
 
           {discoveryData && (
             <div className="discovery-algorithms">
-              <ViewAlpha />
-              <ViewILP />
-              <ViewHeuristics />
-              <ViewInductive />
+              <ViewAlpha logIndex={selectedLogIndex} />
+              <ViewILP logIndex={selectedLogIndex} />
+              <ViewHeuristics logIndex={selectedLogIndex} />
+              <ViewInductive logIndex={selectedLogIndex} />
             </div>
           )}
     </div>

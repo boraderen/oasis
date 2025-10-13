@@ -3,6 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 interface AlphaData {
   message: string
   svg_content: string
+  log_metadata: any
+  train_stats: any
+  test_stats: any
   tbr_fitness: number
   align_fitness: number | string
   tbr_precision: number
@@ -15,7 +18,11 @@ interface AlphaData {
   status: string
 }
 
-function ViewAlpha() {
+interface ViewAlphaProps {
+  logIndex: number
+}
+
+function ViewAlpha({ logIndex }: ViewAlphaProps) {
   const [alphaData, setAlphaData] = useState<AlphaData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -31,8 +38,12 @@ function ViewAlpha() {
     setError(null)
 
     try {
+      const formData = new FormData()
+      formData.append('log_index', logIndex.toString())
+
       const response = await fetch('http://localhost:8000/api/discover_alpha', {
         method: 'POST',
+        body: formData,
       })
 
       const result = await response.json()
@@ -157,52 +168,68 @@ function ViewAlpha() {
           <div className="metrics-center-container">
             {alphaData ? (
               <div className="algorithm-metrics">
-                <div className="metric-row">
-                  <span className="metric-label">TBR Fitness:</span>
-                  <span className="metric-value">{(alphaData.tbr_fitness * 100).toFixed(2)}%</span>
+                {/* Fitness Group */}
+                <div className="metric-section">
+                  <div className="section-header">Fitness</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(alphaData.mean_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(alphaData.tbr_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof alphaData.align_fitness === 'string' 
+                        ? alphaData.align_fitness 
+                        : `${(alphaData.align_fitness * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align Fitness:</span>
-                  <span className="metric-value">
-                    {typeof alphaData.align_fitness === 'string' 
-                      ? alphaData.align_fitness 
-                      : `${(alphaData.align_fitness * 100).toFixed(2)}%`}
-                  </span>
+                
+                {/* Precision Group */}
+                <div className="metric-section">
+                  <div className="section-header">Precision</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(alphaData.mean_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(alphaData.tbr_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof alphaData.align_precision === 'string' 
+                        ? alphaData.align_precision 
+                        : `${(alphaData.align_precision * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR Precision:</span>
-                  <span className="metric-value">{(alphaData.tbr_precision * 100).toFixed(2)}%</span>
+                
+                {/* F1 Group */}
+                <div className="metric-section">
+                  <div className="section-header">F1-Score</div>
+                  <div className="metric-row">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(alphaData.tbr_f1 * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof alphaData.align_f1 === 'string' 
+                        ? alphaData.align_f1 
+                        : `${(alphaData.align_f1 * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Simplicity */}
                 <div className="metric-row">
-                  <span className="metric-label">Align Precision:</span>
-                  <span className="metric-value">
-                    {typeof alphaData.align_precision === 'string' 
-                      ? alphaData.align_precision 
-                      : `${(alphaData.align_precision * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR F1:</span>
-                  <span className="metric-value">{(alphaData.tbr_f1 * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align F1:</span>
-                  <span className="metric-value">
-                    {typeof alphaData.align_f1 === 'string' 
-                      ? alphaData.align_f1 
-                      : `${(alphaData.align_f1 * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Fitness:</span>
-                  <span className="metric-value">{(alphaData.mean_fitness * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Precision:</span>
-                  <span className="metric-value">{(alphaData.mean_precision * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Simplicity:</span>
+                  <span className="metric-label">Simplicity</span>
                   <span className="metric-value">{alphaData.simplicity.toFixed(2)}</span>
                 </div>
               </div>

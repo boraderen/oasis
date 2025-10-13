@@ -3,6 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 interface ILPData {
   message: string
   svg_content: string
+  log_metadata: any
+  train_stats: any
+  test_stats: any
   tbr_fitness: number
   align_fitness: number | string
   tbr_precision: number
@@ -15,7 +18,11 @@ interface ILPData {
   status: string
 }
 
-function ViewILP() {
+interface ViewILPProps {
+  logIndex: number
+}
+
+function ViewILP({ logIndex }: ViewILPProps) {
   const [ilpData, setIlpData] = useState<ILPData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -34,6 +41,7 @@ function ViewILP() {
     setError(null)
 
     const formData = new FormData()
+    formData.append('log_index', logIndex.toString())
     formData.append('alpha', alphaSliderValue.toString())
 
     try {
@@ -207,52 +215,68 @@ function ViewILP() {
           <div className="metrics-center-container">
             {ilpData ? (
               <div className="algorithm-metrics">
-                <div className="metric-row">
-                  <span className="metric-label">TBR Fitness:</span>
-                  <span className="metric-value">{(ilpData.tbr_fitness * 100).toFixed(2)}%</span>
+                {/* Fitness Group */}
+                <div className="metric-section">
+                  <div className="section-header">Fitness</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(ilpData.mean_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(ilpData.tbr_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof ilpData.align_fitness === 'string' 
+                        ? ilpData.align_fitness 
+                        : `${(ilpData.align_fitness * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align Fitness:</span>
-                  <span className="metric-value">
-                    {typeof ilpData.align_fitness === 'string' 
-                      ? ilpData.align_fitness 
-                      : `${(ilpData.align_fitness * 100).toFixed(2)}%`}
-                  </span>
+                
+                {/* Precision Group */}
+                <div className="metric-section">
+                  <div className="section-header">Precision</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(ilpData.mean_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(ilpData.tbr_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof ilpData.align_precision === 'string' 
+                        ? ilpData.align_precision 
+                        : `${(ilpData.align_precision * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR Precision:</span>
-                  <span className="metric-value">{(ilpData.tbr_precision * 100).toFixed(2)}%</span>
+                
+                {/* F1 Group */}
+                <div className="metric-section">
+                  <div className="section-header">F1-Score</div>
+                  <div className="metric-row">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(ilpData.tbr_f1 * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof ilpData.align_f1 === 'string' 
+                        ? ilpData.align_f1 
+                        : `${(ilpData.align_f1 * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Simplicity */}
                 <div className="metric-row">
-                  <span className="metric-label">Align Precision:</span>
-                  <span className="metric-value">
-                    {typeof ilpData.align_precision === 'string' 
-                      ? ilpData.align_precision 
-                      : `${(ilpData.align_precision * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR F1:</span>
-                  <span className="metric-value">{(ilpData.tbr_f1 * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align F1:</span>
-                  <span className="metric-value">
-                    {typeof ilpData.align_f1 === 'string' 
-                      ? ilpData.align_f1 
-                      : `${(ilpData.align_f1 * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Fitness:</span>
-                  <span className="metric-value">{(ilpData.mean_fitness * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Precision:</span>
-                  <span className="metric-value">{(ilpData.mean_precision * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Simplicity:</span>
+                  <span className="metric-label">Simplicity</span>
                   <span className="metric-value">{ilpData.simplicity.toFixed(2)}</span>
                 </div>
               </div>

@@ -3,6 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 interface InductiveData {
   message: string
   svg_content: string
+  log_metadata: any
+  train_stats: any
+  test_stats: any
   tbr_fitness: number
   align_fitness: number | string
   tbr_precision: number
@@ -15,7 +18,11 @@ interface InductiveData {
   status: string
 }
 
-function ViewInductive() {
+interface ViewInductiveProps {
+  logIndex: number
+}
+
+function ViewInductive({ logIndex }: ViewInductiveProps) {
   const [inductiveData, setInductiveData] = useState<InductiveData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -34,6 +41,7 @@ function ViewInductive() {
     setError(null)
 
     const formData = new FormData()
+    formData.append('log_index', logIndex.toString())
     formData.append('noise_threshold', noiseSliderValue.toString())
 
     try {
@@ -207,52 +215,68 @@ function ViewInductive() {
           <div className="metrics-center-container">
             {inductiveData ? (
               <div className="algorithm-metrics">
-                <div className="metric-row">
-                  <span className="metric-label">TBR Fitness:</span>
-                  <span className="metric-value">{(inductiveData.tbr_fitness * 100).toFixed(2)}%</span>
+                {/* Fitness Group */}
+                <div className="metric-section">
+                  <div className="section-header">Fitness</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(inductiveData.mean_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(inductiveData.tbr_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof inductiveData.align_fitness === 'string' 
+                        ? inductiveData.align_fitness 
+                        : `${(inductiveData.align_fitness * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align Fitness:</span>
-                  <span className="metric-value">
-                    {typeof inductiveData.align_fitness === 'string' 
-                      ? inductiveData.align_fitness 
-                      : `${(inductiveData.align_fitness * 100).toFixed(2)}%`}
-                  </span>
+                
+                {/* Precision Group */}
+                <div className="metric-section">
+                  <div className="section-header">Precision</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(inductiveData.mean_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(inductiveData.tbr_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof inductiveData.align_precision === 'string' 
+                        ? inductiveData.align_precision 
+                        : `${(inductiveData.align_precision * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR Precision:</span>
-                  <span className="metric-value">{(inductiveData.tbr_precision * 100).toFixed(2)}%</span>
+                
+                {/* F1 Group */}
+                <div className="metric-section">
+                  <div className="section-header">F1-Score</div>
+                  <div className="metric-row">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(inductiveData.tbr_f1 * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof inductiveData.align_f1 === 'string' 
+                        ? inductiveData.align_f1 
+                        : `${(inductiveData.align_f1 * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Simplicity */}
                 <div className="metric-row">
-                  <span className="metric-label">Align Precision:</span>
-                  <span className="metric-value">
-                    {typeof inductiveData.align_precision === 'string' 
-                      ? inductiveData.align_precision 
-                      : `${(inductiveData.align_precision * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR F1:</span>
-                  <span className="metric-value">{(inductiveData.tbr_f1 * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align F1:</span>
-                  <span className="metric-value">
-                    {typeof inductiveData.align_f1 === 'string' 
-                      ? inductiveData.align_f1 
-                      : `${(inductiveData.align_f1 * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Fitness:</span>
-                  <span className="metric-value">{(inductiveData.mean_fitness * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Precision:</span>
-                  <span className="metric-value">{(inductiveData.mean_precision * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Simplicity:</span>
+                  <span className="metric-label">Simplicity</span>
                   <span className="metric-value">{inductiveData.simplicity.toFixed(2)}</span>
                 </div>
               </div>

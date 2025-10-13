@@ -14,6 +14,9 @@ function Home() {
       />
       <h1 className="logo">Oasis</h1>
       <div className="navigation-buttons">
+        <button className="nav-button" onClick={() => navigate('/data')}>
+          Data
+        </button>
         <button className="nav-button" onClick={() => navigate('/exploration')}>
           Exploration
         </button>

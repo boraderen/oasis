@@ -4,23 +4,36 @@ import './Page.css'
 import ActivityPieChart from '../components/ActivityPieChart'
 import TraceVariantPieChart from '../components/TraceVariantPieChart'
 
-interface UploadData {
-  message: string
+interface LogItem {
   filename: string
-  status: string
+  uploaded_at: string
+  num_events: number
+  num_cases: number
+  num_activities: number
 }
 
-interface DFGData {
-  message: string
-  svg_content: string
-  activity_threshold: number
-  path_threshold: number
-  status: string
+interface VariantItem {
+  activities: string[]
+  frequency: number
 }
 
-interface StatsData {
+interface ExploreData {
   message: string
+  regular_svg_content: string
+  performance_svg_content: string
   insights: LogInsights
+  log_metadata: LogItem
+  available_activities: string[]
+  available_variants: VariantItem[]
+  dotted_chart_svg: string
+  case_duration_svg: string
+  events_per_time_svg: string
+  event_distribution_svg: string
+  first_20_events: any[]
+  footprint_matrix: {
+    activities: string[]
+    matrix: string[][]
+  }
   status: string
 }
 
@@ -31,91 +44,167 @@ interface LogInsights {
   num_trace_variants: number
   activity_frequencies: Record<string, number>
   activity_case_counts: Record<string, number>
+  activity_durations: Record<string, ActivityDuration>
   trace_variants: TraceVariant[]
   start_activities: Record<string, number>
   end_activities: Record<string, number>
+  log_avg_tpt: number
+  log_min_tpt: number
+  log_max_tpt: number
+  log_median_tpt: number
   error?: string
+}
+
+interface ActivityDuration {
+  avg: number
+  min: number
+  max: number
+  median: number
 }
 
 interface TraceVariant {
   activities: string[]
   frequency: number
   percentage: number
+  avg_tpt: number
+  min_tpt: number
+  max_tpt: number
+  median_tpt: number
 }
+
+// Helper function to format duration in human-readable format
+const formatDuration = (seconds: number): string => {
+  if (seconds === 0) return '0s';
+  
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+  
+  return parts.join(' ');
+};
 
 function Exploration() {
   const navigate = useNavigate()
-  const [uploading, setUploading] = useState(false)
-  const [uploadData, setUploadData] = useState<UploadData | null>(null)
-  const [dfgData, setDfgData] = useState<DFGData | null>(null)
-  const [statsData, setStatsData] = useState<StatsData | null>(null)
+  const [logs, setLogs] = useState<LogItem[]>([])
+  const [selectedLogIndex, setSelectedLogIndex] = useState<number>(-1)
+  const [exploreData, setExploreData] = useState<ExploreData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [dfgLoading, setDfgLoading] = useState(false)
-  const [statsLoading, setStatsLoading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [loading, setLoading] = useState(false)
   const svgContainerRef = useRef<HTMLDivElement>(null)
   const [zoom, setZoom] = useState(1)
   const [position, setPosition] = useState({ x: 0, y: 0 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [isInitialized, setIsInitialized] = useState(false)
-  const [activitySliderValue, setActivitySliderValue] = useState(0.5)
-  const [pathSliderValue, setPathSliderValue] = useState(0.2)
-  const [isActivitySliderDragging, setIsActivitySliderDragging] = useState(false)
-  const [isPathSliderDragging, setIsPathSliderDragging] = useState(false)
-  const activitySliderRef = useRef<HTMLDivElement>(null)
-  const pathSliderRef = useRef<HTMLDivElement>(null)
+  
+  // Filter controls
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([])
+  const [selectedVariants, setSelectedVariants] = useState<string[][]>([])
+  const [filtersInitialized, setFiltersInitialized] = useState(false)
+  
+  // Sorting state for variants table
+  const [sortColumn, setSortColumn] = useState<'index' | 'freq' | 'percentage' | 'avg_tpt' | 'min_tpt' | 'max_tpt' | 'median_tpt'>('freq')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  
+  // Sorting state for activities table
+  const [activitySortColumn, setActivitySortColumn] = useState<'activity' | 'freq' | 'cases' | 'avg_dur' | 'min_dur' | 'max_dur' | 'median_dur'>('freq')
+  const [activitySortDirection, setActivitySortDirection] = useState<'asc' | 'desc'>('desc')
+  
+  // DFG type state
+  const [dfgType, setDfgType] = useState<'regular' | 'performance'>('regular')
+  
+  // Event distribution type state
+  const [distributionType, setDistributionType] = useState<string>('days_week')
+  
+  // Visualization state
+  const [activeVisualization, setActiveVisualization] = useState<'dotted' | 'duration' | 'time' | 'distribution'>('dotted')
+  const vizContainerRef = useRef<HTMLDivElement>(null)
+  const [vizZoom, setVizZoom] = useState(1)
+  const [vizPosition, setVizPosition] = useState({ x: 0, y: 0 })
+  const [isVizDragging, setIsVizDragging] = useState(false)
+  const [vizDragStart, setVizDragStart] = useState({ x: 0, y: 0 })
+  const [isVizInitialized, setIsVizInitialized] = useState(false)
+  
+  // Event log data view state
+  const [dataView, setDataView] = useState<'events' | 'footprint'>('events')
+  
+  // Filter controls state
+  const [filtersExpanded, setFiltersExpanded] = useState(false)
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  // Fetch logs on component mount
+  useEffect(() => {
+    fetchLogs()
+  }, [])
 
-    setUploading(true)
+  const fetchLogs = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/logs')
+      const result = await response.json()
+      if (result.status === 'success') {
+        setLogs(result.logs)
+        // Auto-select the most recent log if available
+        if (result.logs.length > 0 && selectedLogIndex === -1) {
+          setSelectedLogIndex(result.logs.length - 1)
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching logs:', err)
+    }
+  }
+
+  const handleExplore = async () => {
+    if (selectedLogIndex === -1) {
+      setError('Please select a log to explore')
+      return
+    }
+    
+    setLoading(true)
     setError(null)
-    setSuccessMessage(null)
-    setUploadData(null)
-    setDfgData(null)
-    setStatsData(null)
-
-    const formData = new FormData()
-    formData.append('file', file)
 
     try {
-      const response = await fetch('http://localhost:8000/api/upload_log', {
+      const response = await fetch(`http://localhost:8000/api/explore/${selectedLogIndex}`, {
         method: 'POST',
-        body: formData,
       })
 
       const result = await response.json()
       
       if (result.status === 'success') {
-        console.log('Received data:', result) // Debug log
-        setUploadData(result)
-        setSuccessMessage(`Successfully uploaded and processed ${result.filename}`)
-        setIsInitialized(false) // Reset initialization flag for new upload
+        setExploreData(result)
+        setSuccessMessage(`Exploring: ${result.log_metadata.filename}`)
+        setIsInitialized(false)
+        // Initialize filters with all items selected
+        setSelectedActivities(result.available_activities || [])
+        setSelectedVariants(result.available_variants?.map((v: any) => v.activities) || [])
+        setFiltersInitialized(true)
       } else {
-        setError(result.message || 'Upload failed')
+        setError(result.message || 'Exploration failed')
       }
     } catch (err) {
       setError('Failed to connect to server')
     } finally {
-      setUploading(false)
+      setLoading(false)
     }
   }
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click()
-  }
+  const updateDFG = async () => {
+    if (selectedLogIndex === -1 || !exploreData) return
 
-  const handleUpdateDFG = async () => {
-    setDfgLoading(true)
+    setLoading(true)
     setError(null)
 
     try {
       const formData = new FormData()
-      formData.append('activity_threshold', activitySliderValue.toString())
-      formData.append('path_threshold', pathSliderValue.toString())
+      formData.append('log_index', selectedLogIndex.toString())
+      formData.append('selected_activities', JSON.stringify(selectedActivities))
+      formData.append('selected_variants', JSON.stringify(selectedVariants))
 
       const response = await fetch('http://localhost:8000/api/update_dfg', {
         method: 'POST',
@@ -125,40 +214,59 @@ function Exploration() {
       const result = await response.json()
       
       if (result.status === 'success') {
-        setDfgData(result)
-        setIsInitialized(false) // Reset initialization for new DFG
+        setExploreData({
+          ...exploreData,
+          regular_svg_content: result.regular_svg_content,
+          performance_svg_content: result.performance_svg_content
+        })
+        setIsInitialized(false)
       } else {
         setError(result.message || 'DFG update failed')
       }
     } catch (err) {
       setError('Failed to connect to server')
     } finally {
-      setDfgLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleUpdateStats = async () => {
-    setStatsLoading(true)
-    setError(null)
+  const updateEventDistribution = async (newDistrType: string) => {
+    if (selectedLogIndex === -1 || !exploreData) return
 
     try {
-      const response = await fetch('http://localhost:8000/api/update_stats', {
+      const formData = new FormData()
+      formData.append('log_index', selectedLogIndex.toString())
+      formData.append('distr_type', newDistrType)
+
+      const response = await fetch('http://localhost:8000/api/update_event_distribution_graph', {
         method: 'POST',
+        body: formData,
       })
 
       const result = await response.json()
       
       if (result.status === 'success') {
-        setStatsData(result)
+        setExploreData({
+          ...exploreData,
+          event_distribution_svg: result.event_distribution_svg
+        })
       } else {
-        setError(result.message || 'Statistics update failed')
+        setError(result.message || 'Failed to update event distribution graph')
       }
     } catch (err) {
       setError('Failed to connect to server')
-    } finally {
-      setStatsLoading(false)
     }
   }
+
+  // Trigger DFG update when filters change
+  useEffect(() => {
+    if (exploreData) {
+      const timeoutId = setTimeout(() => {
+        updateDFG()
+      }, 500) // Debounce
+      return () => clearTimeout(timeoutId)
+    }
+  }, [selectedActivities, selectedVariants])
 
   // Zoom functionality
   const zoomIn = () => {
@@ -194,111 +302,195 @@ function Exploration() {
     setIsInitialized(false)
   }
 
-  // Activity Slider functionality
-  const handleActivitySliderMouseDown = (e: React.MouseEvent) => {
-    setIsActivitySliderDragging(true)
-    e.preventDefault()
-  }
-
-
-  const handleActivitySliderClick = (e: React.MouseEvent) => {
-    if (activitySliderRef.current) {
-      const rect = activitySliderRef.current.getBoundingClientRect()
-      const y = e.clientY - rect.top
-      const percentage = Math.max(0, Math.min(1, y / rect.height))
-      const newValue = 1 - percentage
-      setActivitySliderValue(newValue)
-    }
-  }
-
-  // Path Slider functionality
-  const handlePathSliderMouseDown = (e: React.MouseEvent) => {
-    setIsPathSliderDragging(true)
-    e.preventDefault()
-  }
-
-
-  const handlePathSliderClick = (e: React.MouseEvent) => {
-    if (pathSliderRef.current) {
-      const rect = pathSliderRef.current.getBoundingClientRect()
-      const y = e.clientY - rect.top
-      const percentage = Math.max(0, Math.min(1, y / rect.height))
-      const newValue = 1 - percentage
-      setPathSliderValue(newValue)
-    }
-  }
-
-
-  // Global mouse events for activity slider
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isActivitySliderDragging && activitySliderRef.current) {
-        const rect = activitySliderRef.current.getBoundingClientRect()
-        const y = e.clientY - rect.top
-        const percentage = Math.max(0, Math.min(1, y / rect.height))
-        const newValue = 1 - percentage
-        setActivitySliderValue(newValue)
-      }
-    }
-
-    const handleGlobalMouseUp = () => {
-      setIsActivitySliderDragging(false)
-    }
-
-    if (isActivitySliderDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove)
-      document.addEventListener('mouseup', handleGlobalMouseUp)
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove)
-      document.removeEventListener('mouseup', handleGlobalMouseUp)
-    }
-  }, [isActivitySliderDragging, pathSliderValue])
-
-  // Global mouse events for path slider
-  useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (isPathSliderDragging && pathSliderRef.current) {
-        const rect = pathSliderRef.current.getBoundingClientRect()
-        const y = e.clientY - rect.top
-        const percentage = Math.max(0, Math.min(1, y / rect.height))
-        const newValue = 1 - percentage
-        setPathSliderValue(newValue)
-      }
-    }
-
-    const handleGlobalMouseUp = () => {
-      setIsPathSliderDragging(false)
-    }
-
-    if (isPathSliderDragging) {
-      document.addEventListener('mousemove', handleGlobalMouseMove)
-      document.addEventListener('mouseup', handleGlobalMouseUp)
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleGlobalMouseMove)
-      document.removeEventListener('mouseup', handleGlobalMouseUp)
-    }
-  }, [isPathSliderDragging, activitySliderValue])
-
   // Center SVG when first loaded
   useEffect(() => {
-    if (dfgData && !isInitialized && svgContainerRef.current) {
+    if (exploreData && !isInitialized && svgContainerRef.current) {
       const container = svgContainerRef.current
       const containerRect = container.getBoundingClientRect()
       
-      // Center the SVG within the container
       const centerX = (containerRect.width - containerRect.width * 0.8) / 2
       const centerY = (containerRect.height - containerRect.height * 0.8) / 2
       
       setPosition({ x: centerX, y: centerY })
-      setZoom(0.8) // Start with 80% zoom for better overview
+      setZoom(0.8)
       setIsInitialized(true)
     }
-  }, [dfgData, isInitialized])
+  }, [exploreData, isInitialized])
 
+  // Visualization zoom/drag functionality
+  const vizZoomIn = () => {
+    setVizZoom(prev => Math.min(5, prev * 1.2))
+  }
+
+  const vizZoomOut = () => {
+    setVizZoom(prev => Math.max(0.1, prev / 1.2))
+  }
+
+  const handleVizMouseDown = (e: React.MouseEvent) => {
+    setIsVizDragging(true)
+    setVizDragStart({
+      x: e.clientX - vizPosition.x,
+      y: e.clientY - vizPosition.y
+    })
+  }
+
+  const handleVizMouseMove = (e: React.MouseEvent) => {
+    if (!isVizDragging) return
+    setVizPosition({
+      x: e.clientX - vizDragStart.x,
+      y: e.clientY - vizDragStart.y
+    })
+  }
+
+  const handleVizMouseUp = () => {
+    setIsVizDragging(false)
+  }
+
+  const resetVizView = () => {
+    setVizZoom(0.8)
+    setVizPosition({ x: 0, y: 0 })
+    setIsVizInitialized(false)
+  }
+
+  // Center visualization SVG when first loaded or when switching
+  useEffect(() => {
+    if (exploreData && !isVizInitialized && vizContainerRef.current) {
+      const container = vizContainerRef.current
+      const containerRect = container.getBoundingClientRect()
+      
+      const centerX = (containerRect.width - containerRect.width * 0.8) / 2
+      const centerY = (containerRect.height - containerRect.height * 0.8) / 2
+      
+      setVizPosition({ x: centerX, y: centerY })
+      setVizZoom(0.8)
+      setIsVizInitialized(true)
+    }
+  }, [exploreData, isVizInitialized, activeVisualization])
+
+  // Activity filter toggle
+
+  // Sort variants
+  const handleSort = (column: typeof sortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortColumn(column)
+      setSortDirection('desc')
+    }
+  }
+
+  const getSortedVariants = () => {
+    if (!exploreData) return []
+    
+    const variants = [...exploreData.insights.trace_variants]
+    
+    variants.sort((a, b) => {
+      let aVal: number, bVal: number
+      
+      switch (sortColumn) {
+        case 'index':
+          aVal = exploreData.insights.trace_variants.indexOf(a)
+          bVal = exploreData.insights.trace_variants.indexOf(b)
+          break
+        case 'freq':
+          aVal = a.frequency
+          bVal = b.frequency
+          break
+        case 'percentage':
+          aVal = a.percentage
+          bVal = b.percentage
+          break
+        case 'avg_tpt':
+          aVal = a.avg_tpt
+          bVal = b.avg_tpt
+          break
+        case 'min_tpt':
+          aVal = a.min_tpt
+          bVal = b.min_tpt
+          break
+        case 'max_tpt':
+          aVal = a.max_tpt
+          bVal = b.max_tpt
+          break
+        case 'median_tpt':
+          aVal = a.median_tpt
+          bVal = b.median_tpt
+          break
+        default:
+          return 0
+      }
+      
+      return sortDirection === 'asc' ? aVal - bVal : bVal - aVal
+    })
+    
+    return variants
+  }
+
+  // Sort activities
+  const handleActivitySort = (column: typeof activitySortColumn) => {
+    if (activitySortColumn === column) {
+      setActivitySortDirection(activitySortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setActivitySortColumn(column)
+      setActivitySortDirection('desc')
+    }
+  }
+
+  const getSortedActivities = () => {
+    if (!exploreData) return []
+    
+    const activities = Object.entries(exploreData.insights.activity_frequencies || {}).map(([activity, frequency]) => ({
+      activity,
+      frequency,
+      cases: exploreData.insights.activity_case_counts?.[activity] || 0,
+      durations: exploreData.insights.activity_durations?.[activity] || { avg: 0, min: 0, max: 0, median: 0 }
+    }))
+    
+    activities.sort((a, b) => {
+      let aVal: number | string, bVal: number | string
+      
+      switch (activitySortColumn) {
+        case 'activity':
+          aVal = a.activity
+          bVal = b.activity
+          if (activitySortDirection === 'asc') {
+            return aVal < bVal ? -1 : aVal > bVal ? 1 : 0
+          } else {
+            return aVal > bVal ? -1 : aVal < bVal ? 1 : 0
+          }
+        case 'freq':
+          aVal = a.frequency
+          bVal = b.frequency
+          break
+        case 'cases':
+          aVal = a.cases
+          bVal = b.cases
+          break
+        case 'avg_dur':
+          aVal = a.durations.avg
+          bVal = b.durations.avg
+          break
+        case 'min_dur':
+          aVal = a.durations.min
+          bVal = b.durations.min
+          break
+        case 'max_dur':
+          aVal = a.durations.max
+          bVal = b.durations.max
+          break
+        case 'median_dur':
+          aVal = a.durations.median
+          bVal = b.durations.median
+          break
+        default:
+          return 0
+      }
+      
+      return activitySortDirection === 'asc' ? (aVal as number) - (bVal as number) : (bVal as number) - (aVal as number)
+    })
+    
+    return activities
+  }
 
   return (
     <div className="page">
@@ -311,52 +503,41 @@ function Exploration() {
       <h1 className="page-title">Exploration</h1>
       <div className="page-description">
         <p className="page-content">
-          <strong>Process Exploration Tool:</strong> Upload an event log (.xes or .csv) to explore and analyze your process data through Directly-Follows Graphs (DFG) and comprehensive statistics. Understand your process behavior before applying discovery algorithms.
+          <strong>Process Exploration Tool:</strong> Select an uploaded event log to explore and analyze your process data through Directly-Follows Graphs (DFG) and comprehensive statistics.
         </p>
-        <div className="info-section">
-          <h3>What You'll Get:</h3>
-          <ul>
-            <li><strong>Directly-Follows Graph (DFG):</strong> Visual representation of activity sequences and frequencies</li>
-            <li><strong>Process Statistics:</strong> Detailed analysis of events, cases, activities, and trace variants</li>
-            <li><strong>Activity Analysis:</strong> Frequency distribution and case coverage for each activity</li>
-            <li><strong>Trace Variants:</strong> Different execution paths and their occurrence patterns</li>
-          </ul>
-        </div>
-        <div className="info-section">
-          <h3>DFG Controls:</h3>
-          <ul>
-            <li><strong>Activity Threshold:</strong> Filter out activities below this frequency percentage</li>
-            <li><strong>Path Threshold:</strong> Filter out paths below this frequency percentage</li>
-            <li><strong>Zoom & Pan:</strong> Navigate large graphs with mouse controls</li>
-          </ul>
-        </div>
-        <div className="info-section">
-          <h3>How to Use:</h3>
-          <ol>
-            <li>Upload your event log file</li>
-            <li>Click "Generate DFG" to create the Directly-Follows Graph</li>
-            <li>Click "Generate Statistics" to analyze process data</li>
-            <li>Adjust sliders and regenerate DFG to explore different views</li>
-            <li>Use insights to inform your process discovery strategy</li>
-          </ol>
-        </div>
       </div>
       
       <div className="upload-section">
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleUpload}
-          accept=".xes,.csv"
-          style={{ display: 'none' }}
-        />
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
+          <select 
+            className="log-selector"
+            value={selectedLogIndex}
+            onChange={(e) => setSelectedLogIndex(Number(e.target.value))}
+            disabled={logs.length === 0}
+          >
+            <option value={-1}>-- Select a log --</option>
+            {logs.map((log, index) => (
+              <option key={index} value={index}>
+                {log.filename} ({log.num_events} events, {log.num_cases} cases)
+              </option>
+            ))}
+          </select>
         <button 
           className="upload-button"
-          onClick={triggerFileInput}
-          disabled={uploading}
+            onClick={handleExplore}
+            disabled={selectedLogIndex === -1 || logs.length === 0 || loading}
         >
-          {uploading ? 'Processing...' : 'Upload Event Log'}
+            {loading ? 'Loading...' : 'Explore'}
         </button>
+        </div>
+        {logs.length === 0 && (
+          <p style={{ textAlign: 'center', color: '#7f8c8d', marginTop: '1rem' }}>
+            No logs uploaded yet. Go to the <span 
+              style={{ color: '#3498db', cursor: 'pointer', textDecoration: 'underline' }}
+              onClick={() => navigate('/data')}
+            >Data page</span> to upload a log first.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -371,10 +552,24 @@ function Exploration() {
         </div>
       )}
 
-      {uploadData && (
+      {exploreData && (
         <div className="svg-viewer-container">
           <h2 className="insights-title">DFG</h2>
           <div className="svg-controls">
+            <div className="dfg-type-controls">
+              <button 
+                className={`dfg-type-button ${dfgType === 'regular' ? 'active' : ''}`}
+                onClick={() => setDfgType('regular')}
+              >
+                Regular DFG
+              </button>
+              <button 
+                className={`dfg-type-button ${dfgType === 'performance' ? 'active' : ''}`}
+                onClick={() => setDfgType('performance')}
+              >
+                Performance DFG
+              </button>
+            </div>
             <div className="zoom-controls">
               <button className="zoom-button" onClick={zoomOut}>−</button>
               <span className="zoom-info">Zoom: {Math.round(zoom * 100)}%</span>
@@ -383,15 +578,10 @@ function Exploration() {
             <button className="reset-button" onClick={resetView}>
               Reset View
             </button>
-            <button 
-              className="discover-button"
-              onClick={handleUpdateDFG}
-              disabled={dfgLoading}
-            >
-              {dfgLoading ? 'Generating...' : 'Generate DFG'}
-            </button>
           </div>
-          <div className="svg-main-content">
+          
+          {/* DFG Visualization with Overlay Filters */}
+          <div className="dfg-container">
             <div 
               className="svg-viewer"
               ref={svgContainerRef}
@@ -401,144 +591,474 @@ function Exploration() {
               onMouseLeave={handleMouseUp}
               style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
             >
-              {dfgData ? (
                 <div
                   className="svg-content"
                   style={{
                     transform: `translate(${position.x}px, ${position.y}px) scale(${zoom})`,
                     transformOrigin: '0 0'
                   }}
-                  dangerouslySetInnerHTML={{ __html: dfgData.svg_content }}
-                />
-              ) : (
-                <div className="empty-svg-placeholder">
-                  <p>Click "Generate DFG" to create the Directly-Follows Graph</p>
-                </div>
-              )}
-            </div>
-            <div className="sliders-container-vertical">
-              <div className="vertical-slider-container">
-                <div className="slider-label">Activities</div>
-                <div className="slider-value-display">
-                  {Math.round(activitySliderValue * 100)}%
-                </div>
-                <div 
-                  className="slider-track"
-                  ref={activitySliderRef}
-                  onClick={handleActivitySliderClick}
+                dangerouslySetInnerHTML={{ __html: dfgType === 'regular' ? exploreData.regular_svg_content : exploreData.performance_svg_content }}
+              />
+              
+              {/* Filter Controls Overlay */}
+              <div className="filter-overlay">
+                <button 
+                  className="filter-toggle"
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
                 >
-                  <div 
-                    className="slider-thumb"
-                    style={{
-                      bottom: `${activitySliderValue * 100}%`
-                    }}
-                    onMouseDown={handleActivitySliderMouseDown}
-                  />
+                  {filtersExpanded ? '−' : '+'}
+                </button>
+                
+                {filtersExpanded && (
+                  <div className="filter-dropdown">
+                     <div className="filter-section">
+                       <div className="filter-header">
+                         <span>Activities</span>
+                         <div className="filter-header-buttons">
+                           <button 
+                             className="select-all-btn"
+                             onClick={() => setSelectedActivities(exploreData.available_activities || [])}
+                           >
+                             All
+                           </button>
+                           <button 
+                             className="select-all-btn"
+                             onClick={() => setSelectedActivities([])}
+                           >
+                             None
+                           </button>
+                </div>
+            </div>
+                       <div className="filter-list">
+                         {Object.entries(exploreData.insights.activity_frequencies || {})
+                           .sort(([,a], [,b]) => b - a)
+                           .map(([activity, frequency]) => {
+                             const color = `hsl(${(Object.keys(exploreData.insights.activity_frequencies).indexOf(activity) * 60) % 360}, 70%, 60%)`
+                             const totalEvents = exploreData.insights.num_events || 1
+                             const relativeFreq = ((frequency / totalEvents) * 100).toFixed(1)
+                             return (
+                               <label key={activity} className="filter-item">
+                                <input
+                                  type="checkbox"
+                                  checked={!filtersInitialized || selectedActivities.includes(activity)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedActivities([...selectedActivities, activity])
+                                    } else {
+                                      setSelectedActivities(selectedActivities.filter(a => a !== activity))
+                                    }
+                                  }}
+                                />
+                                 <span 
+                                   className="color-dot" 
+                                   style={{ backgroundColor: color }}
+                                 ></span>
+                                 <span className="item-name">{activity}</span>
+                                 <span className="item-count">{frequency} ({relativeFreq}%)</span>
+                               </label>
+                             )
+                           })}
                 </div>
               </div>
-              <div className="vertical-slider-container">
-                <div className="slider-label">Paths</div>
-                <div className="slider-value-display">
-                  {Math.round(pathSliderValue * 100)}%
+                    
+                     <div className="filter-section">
+                       <div className="filter-header">
+                         <span>Variants</span>
+                         <div className="filter-header-buttons">
+                           <button 
+                             className="select-all-btn"
+                             onClick={() => setSelectedVariants(exploreData.available_variants?.map((v: any) => v.activities) || [])}
+                           >
+                             All
+                           </button>
+                           <button 
+                             className="select-all-btn"
+                             onClick={() => setSelectedVariants([])}
+                           >
+                             None
+                           </button>
+                         </div>
                 </div>
-                <div 
-                  className="slider-track"
-                  ref={pathSliderRef}
-                  onClick={handlePathSliderClick}
-                >
-                  <div 
-                    className="slider-thumb"
-                    style={{
-                      bottom: `${pathSliderValue * 100}%`
-                    }}
-                    onMouseDown={handlePathSliderMouseDown}
-                  />
+                       <div className="filter-list variants-list">
+                         {exploreData.insights.trace_variants
+                           .sort((a, b) => b.frequency - a.frequency)
+                           .map((variant, displayIndex) => {
+                             const originalIndex = exploreData.insights.trace_variants.indexOf(variant) + 1
+                             return (
+                               <label key={displayIndex} className="filter-item variant-item">
+                                <input
+                                  type="checkbox"
+                                  checked={!filtersInitialized || selectedVariants.some(v => 
+                                    v.length === variant.activities.length && 
+                                    v.every((activity: string, i: number) => activity === variant.activities[i])
+                                  )}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedVariants([...selectedVariants, variant.activities])
+                                    } else {
+                                      setSelectedVariants(selectedVariants.filter(v => 
+                                        !(v.length === variant.activities.length && 
+                                          v.every((activity: string, i: number) => activity === variant.activities[i]))
+                                      ))
+                                    }
+                                  }}
+                                />
+                                 <span className="variant-id">#{originalIndex}</span>
+                                 <span className="variant-frequency">{variant.frequency} ({variant.percentage.toFixed(1)}%)</span>
+                                 <div className="variant-sequence">
+                                   {variant.activities.map((activity: string, actIndex: number) => (
+                                     <span key={actIndex} className="activity-chip">
+                                       {activity}
+                                     </span>
+                                   ))}
                 </div>
+                               </label>
+                             )
+                           })}
+              </div>
+                </div>
+                </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {uploadData && (
-        <div className="insights-container">
-          <h2 className="insights-title">Log Analysis</h2>
-          
-          <div className="stats-button-container">
+      {exploreData && (
+        <div className="svg-viewer-container">
+          <h2 className="insights-title">Visualizations</h2>
+          <div className="svg-controls">
+            <div className="viz-type-controls">
+              <button 
+                className={`viz-type-button ${activeVisualization === 'dotted' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveVisualization('dotted')
+                  setIsVizInitialized(false)
+                }}
+              >
+                Dotted Chart
+              </button>
+              <button 
+                className={`viz-type-button ${activeVisualization === 'duration' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveVisualization('duration')
+                  setIsVizInitialized(false)
+                }}
+              >
+                Case Duration
+              </button>
+              <button 
+                className={`viz-type-button ${activeVisualization === 'time' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveVisualization('time')
+                  setIsVizInitialized(false)
+                }}
+              >
+                Events Per Time
+              </button>
             <button 
-              className="discover-button"
-              onClick={handleUpdateStats}
-              disabled={statsLoading}
-            >
-              {statsLoading ? 'Generating...' : 'Generate Statistics'}
+                className={`viz-type-button ${activeVisualization === 'distribution' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveVisualization('distribution')
+                  setIsVizInitialized(false)
+                }}
+              >
+                Event Distribution
+              </button>
+            </div>
+            <div className="zoom-controls">
+              <button className="zoom-button" onClick={vizZoomOut}>−</button>
+              <span className="zoom-info">Zoom: {Math.round(vizZoom * 100)}%</span>
+              <button className="zoom-button" onClick={vizZoomIn}>+</button>
+            </div>
+            <button className="reset-button" onClick={resetVizView}>
+              Reset View
             </button>
           </div>
           
-          {statsData ? (
-            <>
+          {/* Event Distribution Controls */}
+          {activeVisualization === 'distribution' && (
+            <div className="distribution-controls-bar">
+              <label htmlFor="distribution-type">Distribution Type:</label>
+              <select 
+                id="distribution-type"
+                value={distributionType}
+                onChange={(e) => {
+                  setDistributionType(e.target.value)
+                  updateEventDistribution(e.target.value)
+                }}
+                className="distribution-selector"
+              >
+                <option value="days_week">Days of Week</option>
+                <option value="days_month">Days of Month</option>
+                <option value="months">Months</option>
+                <option value="years">Years</option>
+                <option value="hours">Hours of Day</option>
+                <option value="weeks">Weeks of Year</option>
+              </select>
+            </div>
+          )}
+          
+          <div 
+            className="svg-viewer"
+            ref={vizContainerRef}
+            onMouseDown={handleVizMouseDown}
+            onMouseMove={handleVizMouseMove}
+            onMouseUp={handleVizMouseUp}
+            onMouseLeave={handleVizMouseUp}
+            style={{ cursor: isVizDragging ? 'grabbing' : 'grab' }}
+                >
+                  <div 
+              className="svg-content"
+                    style={{
+                transform: `translate(${vizPosition.x}px, ${vizPosition.y}px) scale(${vizZoom})`,
+                transformOrigin: '0 0'
+              }}
+              dangerouslySetInnerHTML={{ 
+                __html: activeVisualization === 'dotted' ? exploreData.dotted_chart_svg :
+                        activeVisualization === 'duration' ? exploreData.case_duration_svg :
+                        activeVisualization === 'time' ? exploreData.events_per_time_svg :
+                        exploreData.event_distribution_svg
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {exploreData && (
+        <div className="insights-container">
+          <h2 className="insights-title">Event Log Data</h2>
+          <div className="svg-controls" style={{ marginBottom: '1rem' }}>
+            <div className="dfg-type-controls">
+            <button 
+                className={`dfg-type-button ${dataView === 'events' ? 'active' : ''}`}
+                onClick={() => setDataView('events')}
+              >
+                Events Table
+              </button>
+              <button 
+                className={`dfg-type-button ${dataView === 'footprint' ? 'active' : ''}`}
+                onClick={() => setDataView('footprint')}
+              >
+                Footprint Matrix
+            </button>
+            </div>
+          </div>
+          
+          {/* Events Table */}
+          {dataView === 'events' && exploreData.first_20_events && (
+            <div style={{ overflowX: 'auto', maxHeight: '500px', overflowY: 'auto' }}>
+              <table className="activities-table">
+                <thead>
+                  <tr>
+                    <th>Case ID</th>
+                    <th>Activity</th>
+                    <th>Timestamp</th>
+                    <th>Resource</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exploreData.first_20_events.map((event, idx) => (
+                    <tr key={idx}>
+                      <td>{event.case_id}</td>
+                      <td>{event.activity}</td>
+                      <td>{event.timestamp}</td>
+                      <td>{event.resource}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Footprint Matrix */}
+          {dataView === 'footprint' && exploreData.footprint_matrix && (
+            <div style={{ overflowX: 'auto', maxHeight: '500px', overflowY: 'auto' }}>
+              <table className="footprint-table">
+                <thead>
+                  <tr>
+                    <th></th>
+                    {exploreData.footprint_matrix.activities.map((act, idx) => (
+                      <th key={idx} title={act}>{act.substring(0, 5)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {exploreData.footprint_matrix.activities.map((rowAct, rowIdx) => (
+                    <tr key={rowIdx}>
+                      <th title={rowAct}>{rowAct.substring(0, 6)}</th>
+                      {exploreData.footprint_matrix.matrix[rowIdx].map((cell, colIdx) => (
+                        <td key={colIdx} className={cell ? 'has-relation' : ''}>
+                          {cell || '#'}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {exploreData && (
+        <div className="insights-container">
+          <h2 className="insights-title">Log Analysis</h2>
           
           {/* Statistics Cards */}
           <div className="stats-grid">
             <div className="stat-card">
-              <div className="stat-value">{statsData.insights.num_events}</div>
+              <div className="stat-value">{exploreData.insights.num_events}</div>
               <div className="stat-label">Events</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{statsData.insights.num_cases}</div>
+              <div className="stat-value">{exploreData.insights.num_cases}</div>
               <div className="stat-label">Cases</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{statsData.insights.num_activities}</div>
+              <div className="stat-value">{exploreData.insights.num_activities}</div>
               <div className="stat-label">Activities</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{statsData.insights.num_trace_variants}</div>
+              <div className="stat-value">{exploreData.insights.num_trace_variants}</div>
               <div className="stat-label">Trace Variants</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{formatDuration(exploreData.insights.log_avg_tpt)}</div>
+              <div className="stat-label">Avg TPT</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{formatDuration(exploreData.insights.log_median_tpt)}</div>
+              <div className="stat-label">Median TPT</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{formatDuration(exploreData.insights.log_min_tpt)}</div>
+              <div className="stat-label">Min TPT</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{formatDuration(exploreData.insights.log_max_tpt)}</div>
+              <div className="stat-label">Max TPT</div>
             </div>
           </div>
 
-          {/* Charts Section - Stacked Layout */}
+          {/* Charts Section */}
           <div className="charts-section-stacked">
             {/* Activity Analysis */}
             <div className="chart-container">
               <h3 className="chart-title">Activity Analysis</h3>
-              <div className="bar-chart">
-                  {Object.entries(statsData.insights?.activity_frequencies || {})
+              
+              {/* Activity Frequency Bar Chart */}
+              <div className="activity-bar-chart">
+                <svg width="100%" height="300" viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid meet" style={{ background: '#f8f9fa', borderRadius: '8px' }}>
+                  {Object.entries(exploreData.insights.activity_frequencies || {})
                     .sort(([,a], [,b]) => b - a)
-                    .map(([activity, frequency], index) => {
-                      // Get case count and percentage for this activity
-                      const casesWithActivity = statsData.insights?.activity_case_counts?.[activity] || 0
-                      const casePercentage = ((casesWithActivity / (statsData.insights?.num_cases || 1)) * 100).toFixed(1)
+                    .map(([activity, frequency], index, array) => {
+                      const maxFreq = Math.max(...Object.values(exploreData.insights.activity_frequencies || {}))
+                      const barHeight = (frequency / maxFreq) * 220
+                      const barWidth = Math.min(Math.max(900 / array.length - 10, 30), 80)
+                      const x = index * (barWidth + 10) + 50
+                      const y = 240 - barHeight
+                      const color = `hsl(${(index * 60) % 360}, 70%, 60%)`
                       
                       return (
-                        <div key={activity} className="bar-item">
-                          <div className="bar-label">
-                            <div className="activity-name">{activity}</div>
-                          </div>
-                          <div className="bar-wrapper">
-                            <div 
-                              className="bar-fill"
-                              style={{ 
-                                 width: `${(frequency / Math.max(...Object.values(statsData.insights?.activity_frequencies || {}))) * 100}%`,
-                                backgroundColor: `hsl(${(index * 60) % 360}, 70%, 60%)`
-                              }}
-                            />
-                          </div>
-                          <div className="bar-value">
-                            <div className="frequency-count">{frequency} cases</div>
-                            <div className="case-info">
-                              present in {casePercentage}% of the cases
-                            </div>
-                          </div>
-                        </div>
+                        <g key={activity}>
+                          <rect
+                            x={x}
+                            y={y}
+                            width={barWidth}
+                            height={barHeight}
+                            fill={color}
+                            opacity={0.85}
+                            rx={2}
+                          />
+                          <text
+                            x={x + barWidth / 2}
+                            y={y - 5}
+                            textAnchor="middle"
+                            fontSize="11"
+                            fill="#2c3e50"
+                            fontWeight="700"
+                          >
+                            {frequency}
+                          </text>
+                          <text
+                            x={x + barWidth / 2}
+                            y={260}
+                            textAnchor="end"
+                            fontSize="10"
+                            fill="#2c3e50"
+                            fontWeight="500"
+                            transform={`rotate(-45, ${x + barWidth / 2}, 260)`}
+                          >
+                            {activity}
+                          </text>
+                        </g>
                       )
                     })}
+                  <line x1="40" y1="240" x2="950" y2="240" stroke="#2c3e50" strokeWidth="2" />
+                  <line x1="40" y1="20" x2="40" y2="240" stroke="#2c3e50" strokeWidth="2" />
+                  <text x="15" y="130" fontSize="12" fill="#2c3e50" fontWeight="600" transform="rotate(-90, 15, 130)">
+                    Frequency
+                  </text>
+                </svg>
+                          </div>
+
+              {/* Activity Table */}
+              <div className="activities-table-container">
+                <table className="activities-table">
+                  <thead>
+                    <tr>
+                      <th onClick={() => handleActivitySort('activity')} className="sortable-header">
+                        Activity {activitySortColumn === 'activity' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleActivitySort('freq')} className="sortable-header">
+                        Abs Freq {activitySortColumn === 'freq' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleActivitySort('cases')} className="sortable-header">
+                        Cases {activitySortColumn === 'cases' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleActivitySort('avg_dur')} className="sortable-header">
+                        Avg Duration {activitySortColumn === 'avg_dur' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleActivitySort('median_dur')} className="sortable-header">
+                        Median Duration {activitySortColumn === 'median_dur' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleActivitySort('min_dur')} className="sortable-header">
+                        Min Duration {activitySortColumn === 'min_dur' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleActivitySort('max_dur')} className="sortable-header">
+                        Max Duration {activitySortColumn === 'max_dur' && (activitySortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getSortedActivities().map((activityData) => {
+                      const casePercentage = ((activityData.cases / (exploreData.insights?.num_cases || 1)) * 100).toFixed(1)
+                      const color = `hsl(${(Object.keys(exploreData.insights.activity_frequencies).indexOf(activityData.activity) * 60) % 360}, 70%, 60%)`
+                      
+                      return (
+                        <tr key={activityData.activity}>
+                          <td className="activity-name-cell">
+                            <div className="activity-color-dot" style={{ backgroundColor: color }}></div>
+                            {activityData.activity}
+                          </td>
+                          <td className="activity-stat-cell">{activityData.frequency}</td>
+                          <td className="activity-stat-cell">{activityData.cases} ({casePercentage}%)</td>
+                          <td className="activity-stat-cell">{formatDuration(activityData.durations.avg)}</td>
+                          <td className="activity-stat-cell">{formatDuration(activityData.durations.median)}</td>
+                          <td className="activity-stat-cell">{formatDuration(activityData.durations.min)}</td>
+                          <td className="activity-stat-cell">{formatDuration(activityData.durations.max)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
               
-              {/* Activity Distribution Pie Chart */}
               <ActivityPieChart 
-                activityFrequencies={statsData.insights.activity_frequencies}
-                totalEvents={statsData.insights.num_events}
+                activityFrequencies={exploreData.insights.activity_frequencies}
+                totalEvents={exploreData.insights.num_events}
               />
             </div>
 
@@ -546,21 +1066,50 @@ function Exploration() {
             <div className="chart-container">
               <h3 className="chart-title">Trace Variants Analysis</h3>
               
-              {/* Trace Variants Sequence */}
-              <div className="trace-variants-sequence">
-                {statsData.insights?.trace_variants?.map((variant, variantIndex) => (
-                  <div key={variantIndex} className="trace-variant-row">
-                    <div className="variant-number">{variantIndex + 1}</div>
-                    <div className="variant-sequence">
+              <div className="variants-table-container">
+                <table className="variants-table">
+                  <thead>
+                    <tr>
+                      <th onClick={() => handleSort('index')} className="sortable-header">
+                        # {sortColumn === 'index' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th className="trace-header">Trace</th>
+                      <th onClick={() => handleSort('freq')} className="sortable-header">
+                        Abs Freq {sortColumn === 'freq' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleSort('percentage')} className="sortable-header">
+                        Rel Freq {sortColumn === 'percentage' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleSort('avg_tpt')} className="sortable-header">
+                        Avg TPT {sortColumn === 'avg_tpt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleSort('median_tpt')} className="sortable-header">
+                        Median TPT {sortColumn === 'median_tpt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleSort('min_tpt')} className="sortable-header">
+                        Min TPT {sortColumn === 'min_tpt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th onClick={() => handleSort('max_tpt')} className="sortable-header">
+                        Max TPT {sortColumn === 'max_tpt' && (sortDirection === 'asc' ? '↑' : '↓')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getSortedVariants().map((variant, displayIndex) => {
+                      const originalIndex = exploreData.insights.trace_variants.indexOf(variant) + 1
+                      return (
+                        <tr key={displayIndex}>
+                          <td className="variant-index-cell">{originalIndex}</td>
+                          <td className="variant-trace-cell">
+                            <div className="variant-sequence-scrollable">
                       {variant.activities.map((activity, activityIndex) => {
-                        // Get consistent color for this activity across all variants
-                         const activityColorIndex = Object.keys(statsData.insights?.activity_frequencies || {}).indexOf(activity)
+                                const activityColorIndex = Object.keys(exploreData.insights?.activity_frequencies || {}).indexOf(activity)
                         const activityColor = `hsl(${(activityColorIndex * 60) % 360}, 70%, 60%)`
                         
                         return (
                           <div
                             key={activityIndex}
-                            className="activity-block"
+                                    className="activity-block-compact"
                             style={{ backgroundColor: activityColor }}
                           >
                             {activity}
@@ -568,27 +1117,26 @@ function Exploration() {
                         )
                       })}
                     </div>
-                    <div className="variant-stats">
-                      {variant.frequency} times, {variant.percentage}%
-                    </div>
-                  </div>
-                ))}
+                          </td>
+                          <td className="variant-stat-cell">{variant.frequency}</td>
+                          <td className="variant-stat-cell">{variant.percentage}%</td>
+                          <td className="variant-stat-cell">{formatDuration(variant.avg_tpt)}</td>
+                          <td className="variant-stat-cell">{formatDuration(variant.median_tpt)}</td>
+                          <td className="variant-stat-cell">{formatDuration(variant.min_tpt)}</td>
+                          <td className="variant-stat-cell">{formatDuration(variant.max_tpt)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
               </div>
               
-              {/* Trace Variant Distribution Pie Chart */}
               <TraceVariantPieChart 
-                traceVariants={statsData.insights.trace_variants}
-                totalCases={statsData.insights.num_cases}
+                traceVariants={exploreData.insights.trace_variants}
+                totalCases={exploreData.insights.num_cases}
               />
-
             </div>
           </div>
-            </>
-          ) : (
-            <div className="empty-stats-placeholder">
-              <p>Click "Generate Statistics" to analyze the event log</p>
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -596,3 +1144,6 @@ function Exploration() {
 }
 
 export default Exploration
+
+
+

@@ -3,6 +3,9 @@ import { useState, useRef, useEffect } from 'react'
 interface HeuristicsData {
   message: string
   svg_content: string
+  log_metadata: any
+  train_stats: any
+  test_stats: any
   tbr_fitness: number
   align_fitness: number | string
   tbr_precision: number
@@ -15,7 +18,11 @@ interface HeuristicsData {
   status: string
 }
 
-function ViewHeuristics() {
+interface ViewHeuristicsProps {
+  logIndex: number
+}
+
+function ViewHeuristics({ logIndex }: ViewHeuristicsProps) {
   const [heuristicsData, setHeuristicsData] = useState<HeuristicsData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -46,6 +53,7 @@ function ViewHeuristics() {
     setError(null)
 
     const formData = new FormData()
+    formData.append('log_index', logIndex.toString())
     formData.append('dependency_threshold', dependencySliderValue.toString())
     formData.append('and_threshold', andSliderValue.toString())
     formData.append('loop_two_threshold', loopSliderValue.toString())
@@ -245,52 +253,68 @@ function ViewHeuristics() {
           <div className="metrics-center-container">
             {heuristicsData ? (
               <div className="algorithm-metrics">
-                <div className="metric-row">
-                  <span className="metric-label">TBR Fitness:</span>
-                  <span className="metric-value">{(heuristicsData.tbr_fitness * 100).toFixed(2)}%</span>
+                {/* Fitness Group */}
+                <div className="metric-section">
+                  <div className="section-header">Fitness</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(heuristicsData.mean_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(heuristicsData.tbr_fitness * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof heuristicsData.align_fitness === 'string' 
+                        ? heuristicsData.align_fitness 
+                        : `${(heuristicsData.align_fitness * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align Fitness:</span>
-                  <span className="metric-value">
-                    {typeof heuristicsData.align_fitness === 'string' 
-                      ? heuristicsData.align_fitness 
-                      : `${(heuristicsData.align_fitness * 100).toFixed(2)}%`}
-                  </span>
+                
+                {/* Precision Group */}
+                <div className="metric-section">
+                  <div className="section-header">Precision</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">{(heuristicsData.mean_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(heuristicsData.tbr_precision * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof heuristicsData.align_precision === 'string' 
+                        ? heuristicsData.align_precision 
+                        : `${(heuristicsData.align_precision * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR Precision:</span>
-                  <span className="metric-value">{(heuristicsData.tbr_precision * 100).toFixed(2)}%</span>
+                
+                {/* F1 Group */}
+                <div className="metric-section">
+                  <div className="section-header">F1-Score</div>
+                  <div className="metric-row">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">{(heuristicsData.tbr_f1 * 100).toFixed(2)}%</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">
+                      {typeof heuristicsData.align_f1 === 'string' 
+                        ? heuristicsData.align_f1 
+                        : `${(heuristicsData.align_f1 * 100).toFixed(2)}%`}
+                    </span>
+                  </div>
                 </div>
+                
+                {/* Simplicity */}
                 <div className="metric-row">
-                  <span className="metric-label">Align Precision:</span>
-                  <span className="metric-value">
-                    {typeof heuristicsData.align_precision === 'string' 
-                      ? heuristicsData.align_precision 
-                      : `${(heuristicsData.align_precision * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR F1:</span>
-                  <span className="metric-value">{(heuristicsData.tbr_f1 * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align F1:</span>
-                  <span className="metric-value">
-                    {typeof heuristicsData.align_f1 === 'string' 
-                      ? heuristicsData.align_f1 
-                      : `${(heuristicsData.align_f1 * 100).toFixed(2)}%`}
-                  </span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Fitness:</span>
-                  <span className="metric-value">{(heuristicsData.mean_fitness * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Precision:</span>
-                  <span className="metric-value">{(heuristicsData.mean_precision * 100).toFixed(2)}%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Simplicity:</span>
+                  <span className="metric-label">Simplicity</span>
                   <span className="metric-value">{heuristicsData.simplicity.toFixed(2)}</span>
                 </div>
               </div>
