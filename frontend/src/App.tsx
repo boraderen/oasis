@@ -3,7 +3,7 @@ import Home from './pages/Home'
 import Data from './pages/Data'
 import Exploration from './pages/Exploration'
 import Discovery from './pages/Discovery'
-import OCPM from './pages/OCPM'
+import OCPMExploration from './pages/OCPM-Exploration'
 import Conformance from './pages/Conformance'
 import AutoPM from './pages/AutoPM'
 import './App.css'
@@ -19,7 +19,7 @@ function App() {
           <Route path="/discovery" element={<Discovery />} />
           <Route path="/conformance" element={<Conformance />} />
           <Route path="/autopm" element={<AutoPM />} />
-          <Route path="/ocpm" element={<OCPM />} />
+          <Route path="/ocpm-exploration" element={<OCPMExploration />} />
         </Routes>
       </div>
     </Router>

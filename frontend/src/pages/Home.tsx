@@ -29,8 +29,8 @@ function Home() {
         <button className="nav-button" onClick={() => navigate('/autopm')}>
           AutoPM
         </button>
-        <button className="nav-button" onClick={() => navigate('/ocpm')}>
-          OCPM
+        <button className="nav-button" onClick={() => navigate('/ocpm-exploration')}>
+          OCPM Exploration
         </button>
       </div>
     </div>

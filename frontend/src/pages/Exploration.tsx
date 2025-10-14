@@ -30,6 +30,7 @@ interface ExploreData {
   events_per_time_svg: string
   event_distribution_svg: string
   first_20_events: any[]
+  event_columns: string[]
   footprint_matrix: {
     activities: string[]
     matrix: string[][]
@@ -88,6 +89,50 @@ const formatDuration = (seconds: number): string => {
   if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
   
   return parts.join(' ');
+};
+
+// Helper to format timestamps more readably
+const formatTimestamp = (timestamp: string): string => {
+  if (!timestamp || timestamp === 'nan' || timestamp === 'NaT' || timestamp === 'N/A') return 'N/A';
+  try {
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return timestamp;
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch {
+    return timestamp;
+  }
+};
+
+// Helper to check if a value looks like a datetime and format it
+const formatIfDatetime = (value: string): string => {
+  if (!value || typeof value !== 'string') return value;
+  
+  // Check if it looks like an ISO datetime (contains 'T' and ':')
+  if (value.includes('T') && value.includes(':')) {
+    try {
+      const date = new Date(value);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      }
+    } catch {
+      // Not a valid date, return as is
+    }
+  }
+  return value;
 };
 
 function Exploration() {
@@ -847,24 +892,25 @@ function Exploration() {
           </div>
           
           {/* Events Table */}
-          {dataView === 'events' && exploreData.first_20_events && (
+          {dataView === 'events' && exploreData.first_20_events && exploreData.event_columns && (
             <div style={{ overflowX: 'auto', maxHeight: '500px', overflowY: 'auto' }}>
               <table className="activities-table">
                 <thead>
                   <tr>
-                    <th>Case ID</th>
-                    <th>Activity</th>
-                    <th>Timestamp</th>
-                    <th>Resource</th>
+                    {exploreData.event_columns.map((col, idx) => (
+                      <th key={idx}>{col}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {exploreData.first_20_events.map((event, idx) => (
                     <tr key={idx}>
-                      <td>{event.case_id}</td>
-                      <td>{event.activity}</td>
-                      <td>{event.timestamp}</td>
-                      <td>{event.resource}</td>
+                      {exploreData.event_columns.map((col, colIdx) => {
+                        const value = event[col]
+                        // Try to format any value that looks like a datetime
+                        const displayValue = formatIfDatetime(value)
+                        return <td key={colIdx}>{displayValue}</td>
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -889,7 +935,7 @@ function Exploration() {
                     <tr key={rowIdx}>
                       <th title={rowAct}>{rowAct.substring(0, 6)}</th>
                       {exploreData.footprint_matrix.matrix[rowIdx].map((cell, colIdx) => (
-                        <td key={colIdx} className={cell ? 'has-relation' : ''}>
+                        <td key={colIdx} className={cell ? (cell === '||' ? 'has-relation parallel-relation' : 'has-relation') : ''}>
                           {cell || '#'}
                         </td>
                       ))}

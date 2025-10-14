@@ -16,21 +16,33 @@ interface ModelItem {
   model_type: string
 }
 
+interface OcelItem {
+  filename: string
+  uploaded_at: string
+  num_events: number
+  num_objects: number
+  object_types: string[]
+}
+
 function Data() {
   const navigate = useNavigate()
   const [uploadingLog, setUploadingLog] = useState(false)
   const [uploadingModel, setUploadingModel] = useState(false)
+  const [uploadingOcel, setUploadingOcel] = useState(false)
   const [logs, setLogs] = useState<LogItem[]>([])
   const [models, setModels] = useState<ModelItem[]>([])
+  const [ocels, setOcels] = useState<OcelItem[]>([])
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const logFileInputRef = useRef<HTMLInputElement>(null)
   const modelFileInputRef = useRef<HTMLInputElement>(null)
+  const ocelFileInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch logs and models on component mount
+  // Fetch logs, models, and ocels on component mount
   useEffect(() => {
     fetchLogs()
     fetchModels()
+    fetchOcels()
   }, [])
 
   const fetchLogs = async () => {
@@ -54,6 +66,18 @@ function Data() {
       }
     } catch (err) {
       console.error('Error fetching models:', err)
+    }
+  }
+
+  const fetchOcels = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/api/ocels')
+      const result = await response.json()
+      if (result.status === 'success') {
+        setOcels(result.ocels)
+      }
+    } catch (err) {
+      console.error('Error fetching OCELs:', err)
     }
   }
 
@@ -188,6 +212,69 @@ function Data() {
     }
   }
 
+  const handleOcelUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setUploadingOcel(true)
+    setError(null)
+    setSuccessMessage(null)
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      const response = await fetch('http://localhost:8000/api/upload_ocel', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+      
+      if (result.status === 'success') {
+        setSuccessMessage(`Successfully uploaded OCEL: ${result.filename}`)
+        fetchOcels() // Refresh the OCELs list
+      } else {
+        setError(result.message || 'Upload failed')
+      }
+    } catch (err) {
+      setError('Failed to connect to server')
+    } finally {
+      setUploadingOcel(false)
+      // Reset file input
+      if (ocelFileInputRef.current) {
+        ocelFileInputRef.current.value = ''
+      }
+    }
+  }
+
+  const handleDeleteOcel = async (index: number, filename: string) => {
+    if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/delete_ocel/${index}`, {
+        method: 'DELETE',
+      })
+
+      const result = await response.json()
+      
+      if (result.status === 'success') {
+        setSuccessMessage(result.message)
+        fetchOcels() // Refresh the OCELs list
+      } else {
+        setError(result.message || 'Delete failed')
+      }
+    } catch (err) {
+      setError('Failed to connect to server')
+    }
+  }
+
+  const triggerOcelFileInput = () => {
+    ocelFileInputRef.current?.click()
+  }
+
   return (
     <div className="page">
       <img 
@@ -218,6 +305,13 @@ function Data() {
           accept=".pnml,.bpmn"
           style={{ display: 'none' }}
         />
+        <input
+          type="file"
+          ref={ocelFileInputRef}
+          onChange={handleOcelUpload}
+          accept=".jsonocel,.xmlocel,.json,.xml,.csv"
+          style={{ display: 'none' }}
+        />
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
           <button 
             className="upload-button"
@@ -232,6 +326,13 @@ function Data() {
             disabled={uploadingModel}
           >
             {uploadingModel ? 'Uploading...' : 'Upload Process Model'}
+          </button>
+          <button 
+            className="upload-button"
+            onClick={triggerOcelFileInput}
+            disabled={uploadingOcel}
+          >
+            {uploadingOcel ? 'Uploading...' : 'Upload OCEL'}
           </button>
         </div>
       </div>
@@ -308,6 +409,41 @@ function Data() {
                     className="delete-button"
                     onClick={() => handleDeleteModel(index, model.filename)}
                     title="Delete this model"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* OCELs List */}
+        <div className="data-list-section">
+          <h2 className="list-title">Uploaded OCELs ({ocels.length})</h2>
+          {ocels.length === 0 ? (
+            <div className="empty-list">
+              <p>No OCELs uploaded yet. Upload an OCEL to get started!</p>
+            </div>
+          ) : (
+            <div className="data-items">
+              {ocels.map((ocel, index) => (
+                <div key={index} className="data-item">
+                  <div className="data-item-content">
+                    <div className="data-item-header">
+                      <span className="data-item-name">{ocel.filename}</span>
+                      <span className="data-item-date">{formatDate(ocel.uploaded_at)}</span>
+                    </div>
+                    <div className="data-item-stats">
+                      <span className="stat-badge">Events: {ocel.num_events}</span>
+                      <span className="stat-badge">Objects: {ocel.num_objects}</span>
+                      <span className="stat-badge">Types: {ocel.object_types.join(', ')}</span>
+                    </div>
+                  </div>
+                  <button 
+                    className="delete-button"
+                    onClick={() => handleDeleteOcel(index, ocel.filename)}
+                    title="Delete this OCEL"
                   >
                     ×
                   </button>
