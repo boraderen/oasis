@@ -14,7 +14,9 @@ interface ILPData {
   align_f1: number | string
   mean_fitness: number
   mean_precision: number
-  simplicity: number
+  num_places: number
+  num_transitions: number
+  num_arcs: number
   status: string
 }
 
@@ -274,49 +276,87 @@ function ViewILP({ logIndex }: ViewILPProps) {
                   </div>
                 </div>
                 
-                {/* Simplicity */}
-                <div className="metric-row">
-                  <span className="metric-label">Simplicity</span>
-                  <span className="metric-value">{ilpData.simplicity.toFixed(2)}</span>
+                {/* Model Structure */}
+                <div className="metric-section">
+                  <div className="section-header">Model Structure</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Places</span>
+                    <span className="metric-value">{ilpData.num_places}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Transitions</span>
+                    <span className="metric-value">{ilpData.num_transitions}</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Arcs</span>
+                    <span className="metric-value">{ilpData.num_arcs}</span>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="algorithm-metrics">
-                <div className="metric-row">
-                  <span className="metric-label">TBR Fitness:</span>
-                  <span className="metric-value">0.00%</span>
+                {/* Fitness Group */}
+                <div className="metric-section">
+                  <div className="section-header">Fitness</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">-</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">-</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">-</span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align Fitness:</span>
-                  <span className="metric-value">0.00%</span>
+                
+                {/* Precision Group */}
+                <div className="metric-section">
+                  <div className="section-header">Precision</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Mean</span>
+                    <span className="metric-value primary">-</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">-</span>
+                  </div>
+                  <div className="metric-row sub">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">-</span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR Precision:</span>
-                  <span className="metric-value">0.00%</span>
+                
+                {/* F1 Group */}
+                <div className="metric-section">
+                  <div className="section-header">F1-Score</div>
+                  <div className="metric-row">
+                    <span className="metric-label">TBR</span>
+                    <span className="metric-value">-</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Alignment</span>
+                    <span className="metric-value">-</span>
+                  </div>
                 </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align Precision:</span>
-                  <span className="metric-value">0.00%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">TBR F1:</span>
-                  <span className="metric-value">0.00%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Align F1:</span>
-                  <span className="metric-value">0.00%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Fitness:</span>
-                  <span className="metric-value">0.00%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Mean Precision:</span>
-                  <span className="metric-value">0.00%</span>
-                </div>
-                <div className="metric-row">
-                  <span className="metric-label">Simplicity:</span>
-                  <span className="metric-value">0.00</span>
+                
+                {/* Model Structure */}
+                <div className="metric-section">
+                  <div className="section-header">Model Structure</div>
+                  <div className="metric-row">
+                    <span className="metric-label">Places</span>
+                    <span className="metric-value">-</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Transitions</span>
+                    <span className="metric-value">-</span>
+                  </div>
+                  <div className="metric-row">
+                    <span className="metric-label">Arcs</span>
+                    <span className="metric-value">-</span>
+                  </div>
                 </div>
               </div>
             )}

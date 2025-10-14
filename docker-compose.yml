@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: oasis-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount data directories to persist uploaded logs and models
+      - ./backend/data:/app/data
+      # Optional: Mount the code for development (hot reload)
+      # - ./backend:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    networks:
+      - oasis-network
+
+  frontend:
+    build: ./frontend
+    container_name: oasis-frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    restart: unless-stopped
+    networks:
+      - oasis-network
+
+networks:
+  oasis-network:
+    driver: bridge
+

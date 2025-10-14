@@ -551,7 +551,7 @@ function Conformance() {
           {/* Log Statistics for Log-Log */}
           {conformanceData.num_events_1 !== undefined && (
             <>
-              <div style={{ marginBottom: '1rem' }}>
+              <div style={{ marginBottom: '2rem' }}>
                 <h3 className="chart-title">Log Statistics</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
                   <div className="stats-grid">
@@ -577,7 +577,7 @@ function Conformance() {
                 </div>
               </div>
               
-              <div style={{ marginBottom: '1rem' }}>
+              <div style={{ marginBottom: '2rem' }}>
                 <h3 className="chart-title">Conformance Metrics</h3>
                 <div className="metrics-list">
                   {/* Footprint Metrics */}
@@ -600,7 +600,7 @@ function Conformance() {
 
           {/* Log and Model Statistics for Log-Model */}
           {conformanceData.num_events !== undefined && conformanceData.num_places !== undefined && (
-            <div style={{ marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '2rem' }}>
               <h3 className="chart-title">Log & Model Statistics</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
                 <div className="stats-grid">
@@ -634,7 +634,7 @@ function Conformance() {
           {/* Petri Net Statistics for Model-Model */}
           {conformanceData.num_places_1 !== undefined && (
             <>
-              <div style={{ marginBottom: '1rem' }}>
+              <div style={{ marginBottom: '2rem' }}>
                 <h3 className="chart-title">Petri Net Statistics</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '1rem' }}>
                   <div className="stats-grid">
@@ -668,7 +668,7 @@ function Conformance() {
                 </div>
               </div>
               
-              <div style={{ marginBottom: '1rem' }}>
+              <div style={{ marginBottom: '2rem' }}>
                 <h3 className="chart-title">Conformance Metrics</h3>
                 <div className="metrics-list">
                   {/* Footprint Metrics */}
@@ -690,7 +690,7 @@ function Conformance() {
           )}
 
           {/* Metrics */}
-          <div className="stats-grid">
+          <div className="stats-grid" style={{ marginBottom: '2rem' }}>
             {conformanceData.footprint_fitness !== undefined && (
               <div className="stat-card">
                 <div className="stat-value">
@@ -705,7 +705,7 @@ function Conformance() {
 
           {/* Conformance Metrics for Log-Model */}
           {conformanceData.tbr_fitness !== undefined && (
-            <div style={{ marginBottom: '1rem' }}>
+            <div style={{ marginBottom: '2rem' }}>
               <h3 className="chart-title">Conformance Metrics</h3>
               <div className="metrics-list">
                 {/* Footprint Metrics */}

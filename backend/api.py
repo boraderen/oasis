@@ -789,33 +789,10 @@ async def discover_alpha(log_index: int = Form(...)):
             mean_fitness = tbr_fitness
             mean_precision = tbr_precision
         
-        # Simplicity measure using the formula:
-        # Simplicity_log = (|A| / |T|) * (1 / (1 + (|P| + |F|) / (|E| + |C|)))
-        # Where:
-        # |A|: number of distinct activities in the log
-        # |E|: total number of events in the log
-        # |C|: number of cases in the log
-        # |P|: number of places in the Petri net
-        # |T|: number of transitions
-        # |F|: number of arcs
-        
-        # Get log statistics from test log
-        num_activities = len(test_log['concept:name'].unique())  # |A|
-        num_events = len(test_log)  # |E|
-        num_cases = len(test_log['case:concept:name'].unique())  # |C|
-        
         # Get Petri net statistics
-        num_transitions = len(net.transitions)  # |T|
-        num_places = len(net.places)  # |P|
-        num_arcs = len(net.arcs)  # |F|
-        
-        # Calculate simplicity
-        if num_transitions > 0:
-            activity_transition_ratio = num_activities / num_transitions
-            complexity_factor = (num_places + num_arcs) / (num_events + num_cases)
-            simplicity = activity_transition_ratio * (1 / (1 + complexity_factor))
-        else:
-            simplicity = 0
+        num_places = len(net.places)
+        num_transitions = len(net.transitions)
+        num_arcs = len(net.arcs)
         
         return {
             "message": "Alpha algorithm discovery completed",
@@ -831,7 +808,9 @@ async def discover_alpha(log_index: int = Form(...)):
             "align_f1": align_f1,
             "mean_fitness": mean_fitness,
             "mean_precision": mean_precision,
-            "simplicity": simplicity,
+            "num_places": num_places,
+            "num_transitions": num_transitions,
+            "num_arcs": num_arcs,
             "status": "success"
         }
         
@@ -911,23 +890,10 @@ async def discover_ilp(log_index: int = Form(...), alpha: float = Form(0.5)):
             mean_fitness = tbr_fitness
             mean_precision = tbr_precision
         
-        # Get log statistics from test log
-        num_activities = len(test_log['concept:name'].unique())
-        num_events = len(test_log)
-        num_cases = len(test_log['case:concept:name'].unique())
-        
         # Get Petri net statistics
-        num_transitions = len(net.transitions)
         num_places = len(net.places)
+        num_transitions = len(net.transitions)
         num_arcs = len(net.arcs)
-        
-        # Calculate simplicity
-        if num_transitions > 0:
-            activity_transition_ratio = num_activities / num_transitions
-            complexity_factor = (num_places + num_arcs) / (num_events + num_cases)
-            simplicity = activity_transition_ratio * (1 / (1 + complexity_factor))
-        else:
-            simplicity = 0
         
         return {
             "message": "ILP algorithm discovery completed",
@@ -943,7 +909,9 @@ async def discover_ilp(log_index: int = Form(...), alpha: float = Form(0.5)):
             "align_f1": align_f1,
             "mean_fitness": mean_fitness,
             "mean_precision": mean_precision,
-            "simplicity": simplicity,
+            "num_places": num_places,
+            "num_transitions": num_transitions,
+            "num_arcs": num_arcs,
             "status": "success"
         }
         
@@ -1033,23 +1001,10 @@ async def discover_heuristics(
             mean_fitness = tbr_fitness
             mean_precision = tbr_precision
         
-        # Get log statistics from test log
-        num_activities = len(test_log['concept:name'].unique())
-        num_events = len(test_log)
-        num_cases = len(test_log['case:concept:name'].unique())
-        
         # Get Petri net statistics
-        num_transitions = len(net.transitions)
         num_places = len(net.places)
+        num_transitions = len(net.transitions)
         num_arcs = len(net.arcs)
-        
-        # Calculate simplicity
-        if num_transitions > 0:
-            activity_transition_ratio = num_activities / num_transitions
-            complexity_factor = (num_places + num_arcs) / (num_events + num_cases)
-            simplicity = activity_transition_ratio * (1 / (1 + complexity_factor))
-        else:
-            simplicity = 0
         
         return {
             "message": "Heuristics algorithm discovery completed",
@@ -1065,7 +1020,9 @@ async def discover_heuristics(
             "align_f1": align_f1,
             "mean_fitness": mean_fitness,
             "mean_precision": mean_precision,
-            "simplicity": simplicity,
+            "num_places": num_places,
+            "num_transitions": num_transitions,
+            "num_arcs": num_arcs,
             "status": "success"
         }
         
@@ -1145,23 +1102,10 @@ async def discover_inductive(log_index: int = Form(...), noise_threshold: float 
             mean_fitness = tbr_fitness
             mean_precision = tbr_precision
         
-        # Get log statistics from test log
-        num_activities = len(test_log['concept:name'].unique())
-        num_events = len(test_log)
-        num_cases = len(test_log['case:concept:name'].unique())
-        
         # Get Petri net statistics
-        num_transitions = len(net.transitions)
         num_places = len(net.places)
+        num_transitions = len(net.transitions)
         num_arcs = len(net.arcs)
-        
-        # Calculate simplicity
-        if num_transitions > 0:
-            activity_transition_ratio = num_activities / num_transitions
-            complexity_factor = (num_places + num_arcs) / (num_events + num_cases)
-            simplicity = activity_transition_ratio * (1 / (1 + complexity_factor))
-        else:
-            simplicity = 0
         
         return {
             "message": "Inductive algorithm discovery completed",
@@ -1177,7 +1121,9 @@ async def discover_inductive(log_index: int = Form(...), noise_threshold: float 
             "align_f1": align_f1,
             "mean_fitness": mean_fitness,
             "mean_precision": mean_precision,
-            "simplicity": simplicity,
+            "num_places": num_places,
+            "num_transitions": num_transitions,
+            "num_arcs": num_arcs,
             "status": "success"
         }
         
