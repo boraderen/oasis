@@ -350,12 +350,6 @@ function Conformance() {
 
   return (
     <div className="page">
-      <img 
-        src="/icon.png" 
-        alt="Oasis" 
-        className="logo-icon" 
-        onClick={() => navigate('/')}
-      />
       <h1 className="page-title">Conformance</h1>
       <div className="page-description">
         <p className="page-content">
@@ -1053,6 +1047,28 @@ function Conformance() {
                         <div>Consumed Tokens: <strong>{variantTbr.consumed_tokens}</strong></div>
                         <div>Remaining Tokens: <strong>{variantTbr.remaining_tokens}</strong></div>
                         <div>Produced Tokens: <strong>{variantTbr.produced_tokens}</strong></div>
+                      </div>
+                      
+                      {/* Trace Variant Visualization */}
+                      <div className="alignment-container" style={{ marginTop: '1rem' }}>
+                        <div className="alignment-row">
+                          <span className="alignment-row-label">Trace:</span>
+                          <div className="alignment-sequence">
+                            {variantTbr.variant.map((activity, activityIdx) => {
+                              const customColor = getActivityColor(activity)
+                              return (
+                                <span 
+                                  key={activityIdx}
+                                  className="alignment-move"
+                                  style={{ background: customColor, color: 'white' }}
+                                  title={activity}
+                                >
+                                  {activity}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}

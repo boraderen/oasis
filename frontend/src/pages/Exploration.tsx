@@ -539,12 +539,6 @@ function Exploration() {
 
   return (
     <div className="page">
-      <img 
-        src="/icon.png" 
-        alt="Oasis" 
-        className="logo-icon" 
-        onClick={() => navigate('/')}
-      />
       <h1 className="page-title">Exploration</h1>
       <div className="page-description">
         <p className="page-content">

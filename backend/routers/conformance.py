@@ -187,17 +187,26 @@ async def conformance_log_model(log_index: int = Form(...), model_index: int = F
             # Build result for top 20 variants (sorted by frequency)
             sorted_variants = sorted(variants.items(), key=lambda x: x[1], reverse=True)[:20]
             
+            # Create a mapping from variant to alignment result
+            variant_to_alignment = {}
+            for i, (variant_tuple, case_events) in enumerate(variant_traces):
+                variant_key = variant_tuple if isinstance(variant_tuple, tuple) else tuple(variant_tuple.split(','))
+                if i < len(alignments):
+                    variant_to_alignment[variant_key] = alignments[i]
+            
             alignment_data = []
             for idx, (variant, count) in enumerate(sorted_variants):
                 variant_key = variant if isinstance(variant, tuple) else tuple(variant.split(','))
                 
-                if idx < len(alignments):
-                    alignment_data.append({
-                        'variant': list(variant_key),
-                        'frequency': count,
-                        'alignment': alignments[idx]['alignment'],
-                        'fitness': alignments[idx]['fitness']
-                    })
+                # Get alignment result for this specific variant
+                alignment_result = variant_to_alignment.get(variant_key, {})
+                
+                alignment_data.append({
+                    'variant': list(variant_key),
+                    'frequency': count,
+                    'alignment': alignment_result.get('alignment', []),
+                    'fitness': alignment_result.get('fitness', 0.0)
+                })
             
         except Exception as align_error:
             alignment_data = []
@@ -215,21 +224,30 @@ async def conformance_log_model(log_index: int = Form(...), model_index: int = F
             # Build TBR data for top 20 variants (sorted by frequency)
             sorted_variants = sorted(variants.items(), key=lambda x: x[1], reverse=True)[:20]
             
+            # Create a mapping from variant to TBR result
+            variant_to_tbr = {}
+            for i, (variant_tuple, case_events) in enumerate(variant_traces):
+                variant_key = variant_tuple if isinstance(variant_tuple, tuple) else tuple(variant_tuple.split(','))
+                if i < len(tbr_results):
+                    variant_to_tbr[variant_key] = tbr_results[i]
+            
             tbr_data = []
             for idx, (variant, count) in enumerate(sorted_variants):
                 variant_key = variant if isinstance(variant, tuple) else tuple(variant.split(','))
                 
-                if idx < len(tbr_results):
-                    tbr_data.append({
-                        'variant': list(variant_key),
-                        'frequency': count,
-                        'missing_tokens': tbr_results[idx].get('missing_tokens', 0),
-                        'consumed_tokens': tbr_results[idx].get('consumed_tokens', 0),
-                        'remaining_tokens': tbr_results[idx].get('remaining_tokens', 0),
-                        'produced_tokens': tbr_results[idx].get('produced_tokens', 0),
-                        'trace_is_fit': tbr_results[idx].get('trace_is_fit', False),
-                        'trace_fitness': tbr_results[idx].get('trace_fitness', 0.0)
-                    })
+                # Get TBR result for this specific variant
+                tbr_result = variant_to_tbr.get(variant_key, {})
+                
+                tbr_data.append({
+                    'variant': list(variant_key),
+                    'frequency': count,
+                    'missing_tokens': tbr_result.get('missing_tokens', 0),
+                    'consumed_tokens': tbr_result.get('consumed_tokens', 0),
+                    'remaining_tokens': tbr_result.get('remaining_tokens', 0),
+                    'produced_tokens': tbr_result.get('produced_tokens', 0),
+                    'trace_is_fit': tbr_result.get('trace_is_fit', False),
+                    'trace_fitness': tbr_result.get('trace_fitness', 0.0)
+                })
             
         except Exception as tbr_error:
             tbr_data = []

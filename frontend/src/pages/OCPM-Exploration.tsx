@@ -382,12 +382,6 @@ function OCPMExploration() {
 
   return (
     <div className="page">
-      <img 
-        src="/icon.png" 
-        alt="Oasis" 
-        className="logo-icon" 
-        onClick={() => navigate('/')}
-      />
       <h1 className="page-title">OCPM Exploration</h1>
       <div className="page-description">
         <p className="page-content">

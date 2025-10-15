@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from routers import data, exploration, discovery, conformance
-from routers import ocpm_exploration
+from routers import ocpm_exploration, ocpm_discovery
 
 # Initialize FastAPI app
 app = FastAPI(title="Oasis API", version="1.0.0")
@@ -45,6 +45,7 @@ app.include_router(conformance.router, tags=["Conformance"])
 
 # OCPM (Object-Centric Process Mining) endpoints
 app.include_router(ocpm_exploration.router, tags=["OCPM"])
+app.include_router(ocpm_discovery.router, tags=["OCPM Discovery"])
 
 # ============================================================================
 # RUN SERVER

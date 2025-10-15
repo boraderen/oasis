@@ -85,12 +85,6 @@ function Discovery() {
 
   return (
     <div className="page">
-      <img 
-        src="/icon.png" 
-        alt="Oasis" 
-        className="logo-icon" 
-        onClick={() => navigate('/')}
-      />
       <h1 className="page-title">Discovery</h1>
       <p className="page-description">
         Automatically discover process models from event logs using four different mining algorithms. 
