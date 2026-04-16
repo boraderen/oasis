@@ -5,6 +5,9 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional
+from urllib.parse import quote_plus
+
+from dotenv import load_dotenv
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,6 +18,9 @@ DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
 )
+MYSQL_TIMEOUT_SECONDS = 10
+
+load_dotenv(BASE_DIR / ".env")
 
 
 def _parse_origins(raw: Optional[str], fallback: tuple[str, ...] = DEFAULT_CORS_ORIGINS) -> tuple[str, ...]:
@@ -50,11 +56,66 @@ def _asset_dir() -> Path:
     return _data_dir() / "assets"
 
 
-def _database_url() -> str:
-    explicit = os.getenv("DATABASE_URL")
-    if explicit:
-        return explicit
+def _local_database_url() -> str:
     return f"sqlite:///{_data_dir() / 'oasis.db'}"
+
+
+def _env_value(*names: str) -> str | None:
+    for name in names:
+        value = os.getenv(name)
+        if value is not None and value.strip():
+            return value.strip()
+    return None
+
+
+def _aiven_mysql_config() -> dict[str, str | int] | None:
+    required = {
+        "AIVEN_MYSQL_HOST": _env_value("AIVEN_MYSQL_HOST"),
+        "AIVEN_MYSQL_PORT": _env_value("AIVEN_MYSQL_PORT"),
+        "AIVEN_MYSQL_DATABASE": _env_value("AIVEN_MYSQL_DATABASE"),
+        "AIVEN_MYSQL_USER": _env_value("AIVEN_MYSQL_USER"),
+        "AIVEN_MYSQL_PASSWORD": _env_value("AIVEN_MYSQL_PASSWORD"),
+    }
+    if not any(required.values()):
+        return None
+
+    missing = [name for name, value in required.items() if not value]
+    if missing:
+        raise ValueError(f"Incomplete Aiven/MySQL configuration. Missing: {', '.join(missing)}")
+
+    try:
+        port = int(required["AIVEN_MYSQL_PORT"] or "")
+    except ValueError as exc:
+        raise ValueError("AIVEN_MYSQL_PORT must be an integer.") from exc
+
+    return {
+        "host": required["AIVEN_MYSQL_HOST"] or "",
+        "port": port,
+        "database": required["AIVEN_MYSQL_DATABASE"] or "",
+        "user": required["AIVEN_MYSQL_USER"] or "",
+        "password": required["AIVEN_MYSQL_PASSWORD"] or "",
+    }
+
+
+def _aiven_mysql_database_url() -> str | None:
+    config = _aiven_mysql_config()
+    if config is None:
+        return None
+
+    host = str(config["host"])
+    port = int(config["port"])
+    database = quote_plus(str(config["database"]))
+    user = quote_plus(str(config["user"]))
+    password = quote_plus(str(config["password"]))
+    return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
+
+
+def _database_url() -> str:
+    remote = _aiven_mysql_database_url()
+    if remote:
+        return remote
+
+    return _local_database_url()
 
 
 def _csrf_trusted_origins(cors_origins: tuple[str, ...]) -> tuple[str, ...]:
@@ -76,6 +137,7 @@ class Settings:
     )
     session_duration_minutes: int = int(os.getenv("OASIS_SESSION_MINUTES", "43200"))
     database_url: str = field(default_factory=_database_url)
+    local_database_url: str = field(default_factory=_local_database_url)
     cors_origins: tuple[str, ...] = field(default_factory=lambda: _parse_origins(os.getenv("CORS_ORIGINS")))
     csrf_trusted_origins: tuple[str, ...] = field(init=False)
     data_dir: Path = field(default_factory=_data_dir)

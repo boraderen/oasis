@@ -10,6 +10,8 @@ __pycache__/
 .venv-backend/
 
 # Backend runtime data
+backend/.env
+backend/query_db.py
 backend/data/oasis.db
 backend/data/assets/**
 !backend/data/assets/.gitkeep
