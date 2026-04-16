@@ -39,6 +39,7 @@ The deployed version is useful for viewing the interface and browsing the projec
 
 Requirements:
 
+- Clone the repo
 - Docker Desktop or Docker Engine with Compose
 
 Start the app:
