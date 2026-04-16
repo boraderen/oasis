@@ -1,12 +1,13 @@
 """Authentication helpers."""
 from __future__ import annotations
 
+import hashlib
 from datetime import timedelta
 from typing import Optional
 
+import bcrypt
 from fastapi import Cookie, Depends, Header, HTTPException, Request, Response, status
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -14,19 +15,33 @@ from .database import get_db, utc_now
 from .models import User
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+BCRYPT_SHA256_PREFIX = "$oasis-bcrypt-sha256$"
+
+
+def _bcrypt_sha256_secret(password: str) -> bytes:
+    """Pre-hash passwords to avoid bcrypt's 72-byte input limit."""
+    return hashlib.sha256(password.encode("utf-8")).hexdigest().encode("ascii")
 
 
 def hash_password(password: str) -> str:
     """Hash a plain-text password."""
-    return pwd_context.hash(password)
+    hashed = bcrypt.hashpw(_bcrypt_sha256_secret(password), bcrypt.gensalt())
+    return f"{BCRYPT_SHA256_PREFIX}{hashed.decode('utf-8')}"
 
 
 def verify_password(password: str, password_hash: Optional[str]) -> bool:
     """Verify a password against a stored hash."""
     if not password_hash:
         return False
-    return pwd_context.verify(password, password_hash)
+    try:
+        if password_hash.startswith(BCRYPT_SHA256_PREFIX):
+            encoded_hash = password_hash.removeprefix(BCRYPT_SHA256_PREFIX).encode("utf-8")
+            return bcrypt.checkpw(_bcrypt_sha256_secret(password), encoded_hash)
+        if password_hash.startswith("$2"):
+            return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except ValueError:
+        return False
+    return False
 
 
 def create_session_token(user_id: int) -> str:
