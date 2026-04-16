@@ -18,10 +18,7 @@ from .logs import build_log_visualization_data, first_rows, get_log_insights
 
 
 def build_object_graph(ocel: Any) -> Optional[str]:
-    """Render an object interaction graph when the OCEL is small enough."""
-    if len(ocel.objects) >= 500:
-        return None
-
+    """Render an object interaction graph when PM4Py can produce it in time."""
     def _render() -> str:
         return render_svg(
             lambda output_path: pm4py.save_vis_object_graph(
