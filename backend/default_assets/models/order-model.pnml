@@ -1,0 +1,264 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<pnml>
+  <net id="order_fulfillment_intended" type="http://www.pnml.org/version-2009/grammar/pnmlcoremodel">
+    <name>
+      <text>order_fulfillment_intended</text>
+    </name>
+    <page id="n0">
+      <place id="p15">
+        <name>
+          <text>p15</text>
+        </name>
+      </place>
+      <place id="p16">
+        <name>
+          <text>p16</text>
+        </name>
+      </place>
+      <place id="p13">
+        <name>
+          <text>p13</text>
+        </name>
+      </place>
+      <place id="sink">
+        <name>
+          <text>sink</text>
+        </name>
+      </place>
+      <place id="p10">
+        <name>
+          <text>p10</text>
+        </name>
+      </place>
+      <place id="source">
+        <name>
+          <text>source</text>
+        </name>
+        <initialMarking>
+          <text>1</text>
+        </initialMarking>
+      </place>
+      <place id="p1">
+        <name>
+          <text>p1</text>
+        </name>
+      </place>
+      <place id="p3">
+        <name>
+          <text>p3</text>
+        </name>
+      </place>
+      <place id="p2">
+        <name>
+          <text>p2</text>
+        </name>
+      </place>
+      <place id="p4">
+        <name>
+          <text>p4</text>
+        </name>
+      </place>
+      <place id="p5">
+        <name>
+          <text>p5</text>
+        </name>
+      </place>
+      <place id="p6">
+        <name>
+          <text>p6</text>
+        </name>
+      </place>
+      <place id="p7">
+        <name>
+          <text>p7</text>
+        </name>
+      </place>
+      <place id="p8">
+        <name>
+          <text>p8</text>
+        </name>
+      </place>
+      <place id="p9">
+        <name>
+          <text>p9</text>
+        </name>
+      </place>
+      <place id="p11">
+        <name>
+          <text>p11</text>
+        </name>
+      </place>
+      <place id="p12">
+        <name>
+          <text>p12</text>
+        </name>
+      </place>
+      <place id="p14">
+        <name>
+          <text>p14</text>
+        </name>
+      </place>
+      <transition id="t_close_after_cancel">
+        <name>
+          <text>Close Order</text>
+        </name>
+      </transition>
+      <transition id="t_cancel_after_fraud">
+        <name>
+          <text>Cancel Order</text>
+        </name>
+      </transition>
+      <transition id="t_authorize_after_fraud">
+        <name>
+          <text>Authorize Payment</text>
+        </name>
+      </transition>
+      <transition id="t_pick_items">
+        <name>
+          <text>Pick Items</text>
+        </name>
+      </transition>
+      <transition id="t_pack_order">
+        <name>
+          <text>Pack Order</text>
+        </name>
+      </transition>
+      <transition id="t_customer_support">
+        <name>
+          <text>Customer Support</text>
+        </name>
+      </transition>
+      <transition id="t_inspect_return">
+        <name>
+          <text>Inspect Return</text>
+        </name>
+      </transition>
+      <transition id="t_deliver_order">
+        <name>
+          <text>Deliver Order</text>
+        </name>
+      </transition>
+      <transition id="t_close_after_delivery">
+        <name>
+          <text>Close Order</text>
+        </name>
+      </transition>
+      <transition id="t_return_requested">
+        <name>
+          <text>Return Requested</text>
+        </name>
+      </transition>
+      <transition id="t_create_order">
+        <name>
+          <text>Create Order</text>
+        </name>
+      </transition>
+      <transition id="t_authorize_direct">
+        <name>
+          <text>Authorize Payment</text>
+        </name>
+      </transition>
+      <transition id="t_validate_order">
+        <name>
+          <text>Validate Order</text>
+        </name>
+      </transition>
+      <transition id="t_fraud_review">
+        <name>
+          <text>Fraud Review</text>
+        </name>
+      </transition>
+      <transition id="t_cancel_from_validate">
+        <name>
+          <text>Cancel Order</text>
+        </name>
+      </transition>
+      <transition id="t_quality_check">
+        <name>
+          <text>Quality Check</text>
+        </name>
+      </transition>
+      <transition id="t_book_shipment">
+        <name>
+          <text>Book Shipment</text>
+        </name>
+      </transition>
+      <transition id="t_ship_order">
+        <name>
+          <text>Ship Order</text>
+        </name>
+      </transition>
+      <transition id="t_delivery_attempt">
+        <name>
+          <text>Delivery Attempt</text>
+        </name>
+      </transition>
+      <transition id="t_receive_return">
+        <name>
+          <text>Receive Return</text>
+        </name>
+      </transition>
+      <transition id="t_refund_order">
+        <name>
+          <text>Refund Order</text>
+        </name>
+      </transition>
+      <transition id="t_close_after_refund">
+        <name>
+          <text>Close Order</text>
+        </name>
+      </transition>
+      <arc id="4559392464" source="p11" target="t_return_requested"/>
+      <arc id="4559392592" source="t_return_requested" target="p13"/>
+      <arc id="4559392720" source="p13" target="t_receive_return"/>
+      <arc id="4559390224" source="t_pick_items" target="p5"/>
+      <arc id="4559390352" source="p5" target="t_pack_order"/>
+      <arc id="4559390480" source="t_pack_order" target="p6"/>
+      <arc id="4559389584" source="p3" target="t_cancel_after_fraud"/>
+      <arc id="4559390608" source="p6" target="t_quality_check"/>
+      <arc id="4559389968" source="t_authorize_after_fraud" target="p4"/>
+      <arc id="4555012496" source="source" target="t_create_order"/>
+      <arc id="4556055824" source="t_create_order" target="p1"/>
+      <arc id="4559388816" source="p2" target="t_cancel_from_validate"/>
+      <arc id="4559388944" source="t_cancel_from_validate" target="p12"/>
+      <arc id="4559390736" source="t_quality_check" target="p7"/>
+      <arc id="4559390864" source="p7" target="t_book_shipment"/>
+      <arc id="4559390992" source="t_book_shipment" target="p8"/>
+      <arc id="4559391120" source="p8" target="t_ship_order"/>
+      <arc id="4559392976" source="p14" target="t_inspect_return"/>
+      <arc id="4559393104" source="t_inspect_return" target="p15"/>
+      <arc id="4559393232" source="p15" target="t_refund_order"/>
+      <arc id="4559391248" source="t_ship_order" target="p9"/>
+      <arc id="4559393360" source="t_refund_order" target="p16"/>
+      <arc id="4559393488" source="p16" target="t_close_after_refund"/>
+      <arc id="4559393616" source="t_close_after_refund" target="sink"/>
+      <arc id="4559393744" source="p12" target="t_close_after_cancel"/>
+      <arc id="4559393872" source="t_close_after_cancel" target="sink"/>
+      <arc id="4556055632" source="p1" target="t_validate_order"/>
+      <arc id="4559372240" source="t_validate_order" target="p2"/>
+      <arc id="4559391440" source="p9" target="t_delivery_attempt"/>
+      <arc id="4559391568" source="t_delivery_attempt" target="p10"/>
+      <arc id="4559391696" source="p10" target="t_customer_support"/>
+      <arc id="4559391824" source="t_customer_support" target="p9"/>
+      <arc id="4559391952" source="p10" target="t_deliver_order"/>
+      <arc id="4559392080" source="t_deliver_order" target="p11"/>
+      <arc id="4559392208" source="p11" target="t_close_after_delivery"/>
+      <arc id="4559392336" source="t_close_after_delivery" target="sink"/>
+      <arc id="4559389072" source="p2" target="t_fraud_review"/>
+      <arc id="4559389200" source="t_fraud_review" target="p3"/>
+      <arc id="4559389328" source="p2" target="t_authorize_direct"/>
+      <arc id="4559389456" source="t_authorize_direct" target="p4"/>
+      <arc id="4559392848" source="t_receive_return" target="p14"/>
+      <arc id="4559389712" source="t_cancel_after_fraud" target="p12"/>
+      <arc id="4559389840" source="p3" target="t_authorize_after_fraud"/>
+      <arc id="4559390096" source="p4" target="t_pick_items"/>
+    </page>
+    <finalmarkings>
+      <marking>
+        <place idref="sink">
+          <text>1</text>
+        </place>
+      </marking>
+    </finalmarkings>
+  </net>
+</pnml>

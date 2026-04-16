@@ -25,7 +25,7 @@ export default function OCPMExplorationPage() {
   const state = useUiStore((store) => store.ocpmExploration);
   const setPageState = useUiStore((store) => store.setPageState);
   const ocelsQuery = useAssetList("ocel");
-  const ocels = ocelsQuery.data ?? [];
+  const ocels = useMemo(() => ocelsQuery.data ?? [], [ocelsQuery.data]);
 
   const saveState = (patch: Partial<typeof state>, options?: { persist?: boolean }) => {
     const nextState = { ...state, ...patch };
@@ -36,10 +36,14 @@ export default function OCPMExplorationPage() {
   };
 
   useEffect(() => {
-    if (!state.selectedOcelId && ocels.length) {
-      saveState({ selectedOcelId: ocels.at(-1)?.id ?? null });
+    if (state.selectedOcelId || !ocels.length) {
+      return;
     }
-  }, [ocels, state.selectedOcelId]);
+
+    const selectedOcelId = ocels.at(-1)?.id ?? null;
+    setPageState("ocpmExploration", { selectedOcelId });
+    void persistPageState("ocpmExploration", { ...useUiStore.getState().ocpmExploration, selectedOcelId });
+  }, [ocels, setPageState, state.selectedOcelId]);
 
   const explore = async () => {
     if (!state.selectedOcelId) {
@@ -154,7 +158,6 @@ export default function OCPMExplorationPage() {
   const activityColors = useMemo(() => buildActivityColorMap(allActivities), [allActivities]);
   const previewLimit = previewLimitOptions.includes(state.eventPreviewLimit) ? state.eventPreviewLimit : 5;
   const vizGroup: VizGroup = state.activeVisualization === "temporal" ? "temporal" : "charts";
-  const temporalVisualizationMode = state.activeVisualization === "distribution" ? "distribution" : "time";
 
   const ocelPreviewRows = useMemo(
     () => (state.result?.extended_table_rows ?? []).slice(0, previewLimit),
@@ -299,7 +302,6 @@ export default function OCPMExplorationPage() {
           title="Flattened Visualizations"
           data={currentVizData}
           vizGroup={vizGroup}
-          mode={temporalVisualizationMode}
           distributionType={state.distributionType as DistributionType}
           colorMap={activityColors}
           emptyMessage="Explore an OCEL to unlock flattened dotted charts and temporal visualizations."

@@ -15,11 +15,9 @@ from .services.logs import get_log_metadata
 from .storage import delete_file, save_file_copy
 
 
-ROOT_LOG_DIR = BASE_DIR.parent / "logs"
-ROOT_MODEL_DIR = BASE_DIR.parent / "models"
-EXCLUDED_DEFAULT_ASSET_FILENAMES = {
-    "intermediate.jsonocel",
-}
+DEFAULT_ASSET_DIR = BASE_DIR / "default_assets"
+DEFAULT_LOG_DIR = DEFAULT_ASSET_DIR / "logs"
+DEFAULT_MODEL_DIR = DEFAULT_ASSET_DIR / "models"
 
 
 def _infer_asset_kind(source: Path) -> str | None:
@@ -34,13 +32,11 @@ def _infer_asset_kind(source: Path) -> str | None:
 
 
 def _iter_default_assets() -> Iterator[tuple[str, Path, str]]:
-    for directory in (ROOT_LOG_DIR, ROOT_MODEL_DIR):
+    for directory in (DEFAULT_LOG_DIR, DEFAULT_MODEL_DIR):
         if not directory.exists():
             continue
 
         for source in sorted((path for path in directory.iterdir() if path.is_file()), key=lambda path: path.name.lower()):
-            if source.name in EXCLUDED_DEFAULT_ASSET_FILENAMES:
-                continue
             kind = _infer_asset_kind(source)
             if kind is None:
                 continue

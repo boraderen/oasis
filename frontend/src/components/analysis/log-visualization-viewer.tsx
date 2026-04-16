@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { formatDuration } from "@/components/analysis-ui";
-import type { DistributionType, LogVisualizationData, VisualizationMode } from "@/lib/types";
+import type { DistributionType, LogVisualizationData } from "@/lib/types";
 
 const CHART_WIDTH = 680;
 const CHART_HEIGHT = 320;
@@ -207,28 +207,31 @@ function useParsedEvents(data: LogVisualizationData | null) {
 }
 
 export type VizGroup = "charts" | "temporal";
+type ZoomableChartKey = "dotted" | "duration" | "time" | "distribution";
 
 export function LogVisualizationViewer({
   title,
   data,
   vizGroup,
-  mode,
   distributionType,
   actions,
   colorMap,
   emptyMessage,
+  enableChartZoom = false,
 }: {
   title: string;
   data: LogVisualizationData | null;
   vizGroup: VizGroup;
-  mode: VisualizationMode;
   distributionType: DistributionType;
   actions?: React.ReactNode;
   colorMap: Record<string, string>;
   emptyMessage: string;
+  enableChartZoom?: boolean;
 }) {
   const parsedEvents = useParsedEvents(data);
   const caseDurations = useMemo(() => data?.case_durations ?? [], [data]);
+  const [zoomedChartKey, setZoomedChartKey] = useState<ZoomableChartKey | null>(null);
+  const dottedChartDialogTitleId = useId();
 
   const dottedPoints = useMemo(() => {
     if (!parsedEvents.length) {
@@ -258,11 +261,129 @@ export function LogVisualizationViewer({
     [distributionType, parsedEvents],
   );
   const durationHistogram = useMemo(() => buildDurationHistogram(caseDurations), [caseDurations]);
-  const secondaryMode = mode === "distribution" ? "distribution" : "time";
 
   const plotWidth = CHART_WIDTH - MARGIN.left - MARGIN.right;
   const plotHeight = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
   const caseCount = Math.max(...parsedEvents.map((point) => point.caseIndex), -1) + 1;
+  const dottedChartProps = {
+    colorMap,
+    caseCount,
+    plotHeight,
+    plotWidth,
+    points: dottedPoints,
+    totalEvents: parsedEvents.length,
+  };
+  const durationChart = (
+    <DurationHistogram
+      caseDurations={caseDurations}
+      histogram={durationHistogram}
+      plotHeight={plotHeight}
+      plotWidth={plotWidth}
+    />
+  );
+  const timeChart = <EventsPerTimeChart plotHeight={plotHeight} plotWidth={plotWidth} timeBins={timeBins} />;
+  const distributionChart = (
+    <DistributionChart
+      bars={distributionBars}
+      distributionType={distributionType}
+      plotHeight={plotHeight}
+      plotWidth={plotWidth}
+    />
+  );
+  const zoomedChart =
+    zoomedChartKey === "dotted" && enableChartZoom && dottedPoints.length
+      ? {
+          title: "Dotted chart",
+          description: "Expanded view of event points over cases and time.",
+          closeLabel: "Close zoomed dotted chart",
+          chart: <DottedChart {...dottedChartProps} />,
+          summary: (
+            <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+              <span>{parsedEvents.length.toLocaleString()} events</span>
+              <span>{caseCount.toLocaleString()} cases</span>
+              {dottedPoints.length !== parsedEvents.length ? <span>{dottedPoints.length.toLocaleString()} rendered points</span> : null}
+            </div>
+          ),
+        }
+      : zoomedChartKey === "duration" && enableChartZoom && caseDurations.length
+        ? {
+            title: "Case duration",
+            description: "Expanded view of case throughput time distribution.",
+            closeLabel: "Close zoomed case duration chart",
+            chart: durationChart,
+            summary: (
+              <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+                <span>{caseDurations.length.toLocaleString()} case durations</span>
+                <span>Median {formatDuration(median(caseDurations.map((item) => item.duration_seconds)))}</span>
+              </div>
+            ),
+          }
+        : zoomedChartKey === "time" && enableChartZoom && timeBins.length
+          ? {
+              title: "Events per time",
+              description: "Expanded view of event volume over the full timeline.",
+              closeLabel: "Close zoomed events per time chart",
+              chart: timeChart,
+              summary: (
+                <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+                  <span>{parsedEvents.length.toLocaleString()} events</span>
+                  <span>{timeBins.length} time bins</span>
+                </div>
+              ),
+            }
+          : zoomedChartKey === "distribution" && enableChartZoom && distributionBars.length
+            ? {
+                title: "Temporal event distribution",
+                description: "Expanded view of grouped event counts by temporal bucket.",
+                closeLabel: "Close zoomed temporal event distribution chart",
+                chart: distributionChart,
+                summary: (
+                  <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+                    <span>{parsedEvents.length.toLocaleString()} events</span>
+                    <span>{distributionBars.length} buckets</span>
+                  </div>
+                ),
+              }
+            : null;
+  const isZoomedChartVisible = zoomedChart !== null;
+
+  useEffect(() => {
+    if (!isZoomedChartVisible) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setZoomedChartKey(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isZoomedChartVisible]);
+
+  const renderChartStage = ({
+    chartKey,
+    chart,
+    buttonLabel,
+  }: {
+    chartKey: ZoomableChartKey;
+    chart: React.ReactNode;
+    buttonLabel: string;
+  }) =>
+    enableChartZoom ? (
+      <button
+        type="button"
+        className="raw-log-viz-stage raw-log-viz-stage-button compact"
+        onClick={() => setZoomedChartKey(chartKey)}
+        aria-label={buttonLabel}
+      >
+        {chart}
+        <span className="raw-log-viz-zoom-hint">Click to zoom</span>
+      </button>
+    ) : (
+      <div className="raw-log-viz-stage compact">{chart}</div>
+    );
 
   const content = !data || (!parsedEvents.length && !caseDurations.length) ? (
     <div className="empty-panel viewer-empty">{emptyMessage}</div>
@@ -277,20 +398,17 @@ export function LogVisualizationViewer({
                 <p>Event points over cases and time.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {dottedPoints.length ? (
-                <DottedChart
-                  colorMap={colorMap}
-                  caseCount={caseCount}
-                  plotHeight={plotHeight}
-                  plotWidth={plotWidth}
-                  points={dottedPoints}
-                  totalEvents={parsedEvents.length}
-                />
-              ) : (
+            {dottedPoints.length ? (
+              renderChartStage({
+                chartKey: "dotted",
+                chart: <DottedChart {...dottedChartProps} />,
+                buttonLabel: "Open zoomed dotted chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No event points available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{parsedEvents.length.toLocaleString()} events</span>
               <span>{caseCount.toLocaleString()} cases</span>
@@ -313,13 +431,17 @@ export function LogVisualizationViewer({
                 <p>Distribution of case throughput times.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {caseDurations.length ? (
-                <DurationHistogram caseDurations={caseDurations} histogram={durationHistogram} plotHeight={plotHeight} plotWidth={plotWidth} />
-              ) : (
+            {caseDurations.length ? (
+              renderChartStage({
+                chartKey: "duration",
+                chart: durationChart,
+                buttonLabel: "Open zoomed case duration chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No case durations available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{caseDurations.length.toLocaleString()} case durations</span>
               <span>Median {formatDuration(median(caseDurations.map((item) => item.duration_seconds)))}</span>
@@ -335,13 +457,17 @@ export function LogVisualizationViewer({
                 <p>Event volume over the full timeline.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {timeBins.length ? (
-                <EventsPerTimeChart plotHeight={plotHeight} plotWidth={plotWidth} timeBins={timeBins} />
-              ) : (
+            {timeBins.length ? (
+              renderChartStage({
+                chartKey: "time",
+                chart: timeChart,
+                buttonLabel: "Open zoomed events per time chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No temporal data available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{parsedEvents.length.toLocaleString()} events</span>
               <span>{timeBins.length} time bins</span>
@@ -351,17 +477,21 @@ export function LogVisualizationViewer({
           <section className="log-viz-card">
             <div className="log-viz-card-header">
               <div>
-                <h4>Event distribution</h4>
+                <h4>Temporal event distribution</h4>
                 <p>Grouped event counts by temporal bucket.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {distributionBars.length ? (
-                <DistributionChart bars={distributionBars} distributionType={distributionType} plotHeight={plotHeight} plotWidth={plotWidth} />
-              ) : (
+            {distributionBars.length ? (
+              renderChartStage({
+                chartKey: "distribution",
+                chart: distributionChart,
+                buttonLabel: "Open zoomed temporal event distribution chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No distribution data available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{parsedEvents.length.toLocaleString()} events</span>
               <span>{distributionBars.length} buckets</span>
@@ -379,6 +509,34 @@ export function LogVisualizationViewer({
         <div className="panel-actions viewer-toolbar">{actions}</div>
       </div>
       {content}
+      {zoomedChart ? (
+        <div className="raw-log-viz-modal" role="presentation" onClick={() => setZoomedChartKey(null)}>
+          <div
+            className="raw-log-viz-modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dottedChartDialogTitleId}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="raw-log-viz-modal-header">
+              <div>
+                <h4 id={dottedChartDialogTitleId}>{zoomedChart.title}</h4>
+                <p>{zoomedChart.description}</p>
+              </div>
+              <button
+                className="ghost-button raw-log-viz-modal-close"
+                type="button"
+                onClick={() => setZoomedChartKey(null)}
+                aria-label={zoomedChart.closeLabel}
+              >
+                Close
+              </button>
+            </div>
+            <div className="raw-log-viz-stage raw-log-viz-stage-modal">{zoomedChart.chart}</div>
+            {zoomedChart.summary}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

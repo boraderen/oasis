@@ -1407,6 +1407,22 @@ textarea:focus {
   padding: 0.35rem;
 }
 
+.raw-log-viz-stage-button {
+  position: relative;
+  display: block;
+  width: 100%;
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: zoom-in;
+}
+
+.raw-log-viz-stage-button:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+}
+
 .raw-log-viz-svg {
   display: block;
   width: 100%;
@@ -1474,6 +1490,74 @@ textarea:focus {
   height: 0.72rem;
   border-radius: 999px;
   flex: 0 0 auto;
+}
+
+.raw-log-viz-zoom-hint {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  padding: 0.3rem 0.55rem;
+  border: 1px solid rgba(20, 74, 92, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.raw-log-viz-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem;
+  background: rgba(18, 24, 32, 0.58);
+  backdrop-filter: blur(6px);
+}
+
+.raw-log-viz-modal-panel {
+  width: min(98vw, 88rem);
+  max-height: 94vh;
+  overflow: auto;
+  padding: 1.15rem;
+  border: 1px solid rgba(20, 74, 92, 0.12);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 64px rgba(18, 24, 32, 0.2);
+}
+
+.raw-log-viz-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.raw-log-viz-modal-header h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.raw-log-viz-modal-header p {
+  margin: 0.3rem 0 0;
+  color: var(--muted);
+}
+
+.raw-log-viz-modal-close {
+  width: auto;
+  min-width: 0;
+}
+
+.raw-log-viz-stage-modal {
+  min-height: auto;
+  padding: 0.55rem;
+}
+
+.raw-log-viz-modal-summary {
+  margin-top: 0.85rem;
 }
 
 .dfg-filter-drawer {
@@ -2789,6 +2873,16 @@ textarea:focus {
     border-left: none !important;
     border-top: 1px solid rgba(28, 33, 37, 0.08);
   }
+
+  .raw-log-viz-modal {
+    align-items: flex-start;
+    padding: 0.75rem;
+  }
+
+  .raw-log-viz-modal-panel {
+    width: min(100%, 88rem);
+    max-height: calc(100vh - 1.5rem);
+  }
 }
 
 @media (max-width: 640px) {
@@ -2836,6 +2930,16 @@ textarea:focus {
   .viewer-zoom-controls {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .raw-log-viz-modal-header {
+    flex-direction: column;
+  }
+
+  .raw-log-viz-zoom-hint {
+    top: auto;
+    right: 0.65rem;
+    bottom: 0.65rem;
   }
 
   .dynamic-dfg-filter-body {

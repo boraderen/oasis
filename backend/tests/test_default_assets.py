@@ -41,14 +41,16 @@ class DefaultAssetTests(unittest.TestCase):
             self.created_paths = [asset.storage_path for asset in assets]
 
             self.assertTrue(seeded)
-            self.assertGreaterEqual(len(assets), 1)
+            self.assertEqual(len(assets), 2)
 
             filenames = {asset.filename for asset in assets}
-            self.assertIn("basic_log.xes", filenames)
-            self.assertIn("event-log.xes", filenames)
-            self.assertIn("example_log.jsonocel", filenames)
-            self.assertIn("normative-model.pnml", filenames)
-            self.assertIn("my-model.pnml", filenames)
+            self.assertEqual(
+                filenames,
+                {
+                    "order-log.xes",
+                    "order-model.pnml",
+                },
+            )
 
             seeded_again = ensure_default_assets(db, user)
             assets_again = list(db.scalars(select(Asset).where(Asset.owner_id == user.id)).all())

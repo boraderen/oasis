@@ -14,9 +14,10 @@ RUN apt-get update \
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-RUN mkdir -p /app/backend/data /app/logs /app/models
+RUN mkdir -p /app/backend/data
 
 COPY app ./backend/app
+COPY default_assets ./backend/default_assets
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV OASIS_DATA_DIR="/app/backend/data"
