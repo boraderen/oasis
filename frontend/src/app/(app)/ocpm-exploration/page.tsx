@@ -305,6 +305,7 @@ export default function OCPMExplorationPage() {
           distributionType={state.distributionType as DistributionType}
           colorMap={activityColors}
           emptyMessage="Explore an OCEL to unlock flattened dotted charts and temporal visualizations."
+          enableChartZoom
           actions={
             <>
               {state.result?.object_types.map((objectType) =>
