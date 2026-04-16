@@ -15,7 +15,7 @@ const sampleVisualizationData: LogVisualizationData = {
       case_id: "case-2",
       case_index: 1,
       activity: "Approve",
-      timestamp: "2026-04-10T09:15:00Z",
+      timestamp: "2026-04-10T09:00:00Z",
     },
   ],
   case_durations: [
@@ -27,6 +27,23 @@ const sampleVisualizationData: LogVisualizationData = {
     },
   ],
 };
+
+function mockSvgBounds(element: Element) {
+  Object.defineProperty(element, "getBoundingClientRect", {
+    configurable: true,
+    value: () => ({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 680,
+      bottom: 320,
+      width: 680,
+      height: 320,
+      toJSON: () => undefined,
+    }),
+  });
+}
 
 describe("LogVisualizationViewer", () => {
   it("opens and closes zoomed chart overlays for the charts group", () => {
@@ -59,6 +76,32 @@ describe("LogVisualizationViewer", () => {
     expect(screen.queryByRole("dialog", { name: "Case duration" })).not.toBeInTheDocument();
   });
 
+  it("shows exact hover values for dotted and case duration x-axes", () => {
+    render(
+      <LogVisualizationViewer
+        title="Log Visualizations"
+        data={sampleVisualizationData}
+        vizGroup="charts"
+        distributionType="days_week"
+        colorMap={{ Start: "#e67e22", Approve: "#144a5c" }}
+        emptyMessage="No data available."
+        enableChartZoom
+      />,
+    );
+
+    const dottedChart = screen.getByLabelText("Dotted chart");
+    mockSvgBounds(dottedChart);
+    fireEvent.mouseMove(dottedChart, { clientX: 357, clientY: 120 });
+
+    expect(screen.getByText((content) => content.includes("Apr 10, 2026") && content.includes("08:30"))).toBeInTheDocument();
+
+    const durationChart = screen.getByLabelText("Case duration histogram");
+    mockSvgBounds(durationChart);
+    fireEvent.mouseMove(durationChart, { clientX: 357, clientY: 120 });
+
+    expect(screen.getByText("15m")).toBeInTheDocument();
+  });
+
   it("opens and closes zoomed chart overlays for the temporal group", () => {
     render(
       <LogVisualizationViewer
@@ -83,5 +126,26 @@ describe("LogVisualizationViewer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open zoomed temporal event distribution chart" }));
 
     expect(screen.getByRole("dialog", { name: "Temporal event distribution" })).toBeInTheDocument();
+  });
+
+  it("shows exact hover values for events per time axes", () => {
+    render(
+      <LogVisualizationViewer
+        title="Log Visualizations"
+        data={sampleVisualizationData}
+        vizGroup="temporal"
+        distributionType="days_week"
+        colorMap={{ Start: "#e67e22", Approve: "#144a5c" }}
+        emptyMessage="No data available."
+        enableChartZoom
+      />,
+    );
+
+    const timeChart = screen.getByLabelText("Events per time");
+    mockSvgBounds(timeChart);
+    fireEvent.mouseMove(timeChart, { clientX: 357, clientY: 120 });
+
+    expect(screen.getByText((content) => content.includes("Apr 10, 2026") && content.includes("08:30"))).toBeInTheDocument();
+    expect(screen.getByText("1 event")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 
 import { formatDuration } from "@/components/analysis-ui";
 import type { DistributionType, LogVisualizationData } from "@/lib/types";
@@ -42,8 +42,50 @@ type DurationBin = {
   count: number;
 };
 
+type SvgHoverPoint = {
+  x: number;
+  y: number;
+};
+
+type DottedChartCircle = {
+  key: string;
+  x: number;
+  y: number;
+  color: string;
+  title: string;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function readSvgHoverPoint(event: React.MouseEvent<SVGSVGElement>): SvgHoverPoint | null {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) {
+    return null;
+  }
+
+  return {
+    x: ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH,
+    y: ((event.clientY - bounds.top) / bounds.height) * CHART_HEIGHT,
+  };
+}
+
+function estimateHoverLabelWidth(label: string) {
+  return Math.max(48, label.length * 7.1 + 18);
+}
+
+function formatEventCount(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  return rounded.toLocaleString("en", {
+    minimumFractionDigits: Number.isInteger(rounded) ? 0 : 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+function formatEventCountLabel(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  return `${formatEventCount(rounded)} ${Math.abs(rounded - 1) < 0.05 ? "event" : "events"}`;
 }
 
 function formatUtcDate(timestampMs: number, withTime = false) {
@@ -560,19 +602,42 @@ function DottedChart({
   const maxMs = Math.max(...points.map((point) => point.timestampMs));
   const timeRange = Math.max(maxMs - minMs, 1);
   const caseRange = Math.max(caseCount - 1, 1);
+  const renderedPoints = useMemo<DottedChartCircle[]>(
+    () =>
+      points.map((point, index) => ({
+        key: `${point.caseId}-${index}`,
+        x: MARGIN.left + ((point.timestampMs - minMs) / timeRange) * plotWidth,
+        y: MARGIN.top + plotHeight - (point.caseIndex / caseRange) * plotHeight,
+        color: colorMap[point.activity] ?? VIZ_ACCENT,
+        title: `${point.activity} · ${point.caseId} · ${formatUtcDate(point.timestampMs, true)}`,
+      })),
+    [caseRange, colorMap, minMs, plotHeight, plotWidth, points, timeRange],
+  );
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const hoverLabel =
+    hoverX === null ? null : formatUtcDate(minMs + ((hoverX - MARGIN.left) / Math.max(plotWidth, 1)) * timeRange, true);
 
   return (
-    <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="raw-log-viz-svg" aria-label="Dotted chart">
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      className="raw-log-viz-svg"
+      aria-label="Dotted chart"
+      onMouseMove={(event) => {
+        const hoverPoint = readSvgHoverPoint(event);
+        if (!hoverPoint) {
+          setHoverX(null);
+          return;
+        }
+
+        const inXRange = hoverPoint.x >= MARGIN.left && hoverPoint.x <= MARGIN.left + plotWidth;
+        const inYRange = hoverPoint.y >= MARGIN.top && hoverPoint.y <= CHART_HEIGHT - 8;
+        setHoverX(inXRange && inYRange ? clamp(hoverPoint.x, MARGIN.left, MARGIN.left + plotWidth) : null);
+      }}
+      onMouseLeave={() => setHoverX(null)}
+    >
       <ChartFrame plotHeight={plotHeight} plotWidth={plotWidth} xEndLabel={formatUtcDate(maxMs)} xStartLabel={formatUtcDate(minMs)} yMaxLabel={`${Math.max(caseCount, 1)}`} yMinLabel="1" />
-      {points.map((point, index) => {
-        const x = MARGIN.left + ((point.timestampMs - minMs) / timeRange) * plotWidth;
-        const y = MARGIN.top + plotHeight - (point.caseIndex / caseRange) * plotHeight;
-        return (
-          <circle key={`${point.caseId}-${index}`} cx={x} cy={y} r="2.2" fill={colorMap[point.activity] ?? VIZ_ACCENT} opacity="0.82">
-            <title>{`${point.activity} · ${point.caseId} · ${formatUtcDate(point.timestampMs, true)}`}</title>
-          </circle>
-        );
-      })}
+      <DottedChartPointCloud points={renderedPoints} />
+      {hoverLabel ? <HoverXAxisGuide x={hoverX!} label={hoverLabel} plotHeight={plotHeight} /> : null}
       <text x={CHART_WIDTH / 2} y={CHART_HEIGHT - 14} textAnchor="middle" className="raw-log-viz-axis-title">
         Timeline
       </text>
@@ -585,6 +650,18 @@ function DottedChart({
     </svg>
   );
 }
+
+const DottedChartPointCloud = memo(function DottedChartPointCloud({ points }: { points: DottedChartCircle[] }) {
+  return (
+    <>
+      {points.map((point) => (
+        <circle key={point.key} cx={point.x} cy={point.y} r="2.2" fill={point.color} opacity="0.82">
+          <title>{point.title}</title>
+        </circle>
+      ))}
+    </>
+  );
+});
 
 function DurationHistogram({
   caseDurations,
@@ -599,9 +676,29 @@ function DurationHistogram({
 }) {
   const maxCount = Math.max(...histogram.map((bin) => bin.count), 1);
   const barWidth = plotWidth / Math.max(histogram.length, 1);
+  const maxDuration = histogram.at(-1)?.end ?? 0;
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const hoverLabel =
+    hoverX === null ? null : formatDuration(((hoverX - MARGIN.left) / Math.max(plotWidth, 1)) * maxDuration);
 
   return (
-    <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="raw-log-viz-svg" aria-label="Case duration histogram">
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      className="raw-log-viz-svg"
+      aria-label="Case duration histogram"
+      onMouseMove={(event) => {
+        const hoverPoint = readSvgHoverPoint(event);
+        if (!hoverPoint) {
+          setHoverX(null);
+          return;
+        }
+
+        const inXRange = hoverPoint.x >= MARGIN.left && hoverPoint.x <= MARGIN.left + plotWidth;
+        const inYRange = hoverPoint.y >= MARGIN.top && hoverPoint.y <= CHART_HEIGHT - 8;
+        setHoverX(inXRange && inYRange ? clamp(hoverPoint.x, MARGIN.left, MARGIN.left + plotWidth) : null);
+      }}
+      onMouseLeave={() => setHoverX(null)}
+    >
       <ChartFrame
         plotHeight={plotHeight}
         plotWidth={plotWidth}
@@ -635,6 +732,7 @@ function DurationHistogram({
           <stop offset="100%" stopColor={VIZ_ACCENT_DARK} />
         </linearGradient>
       </defs>
+      {hoverLabel ? <HoverXAxisGuide x={hoverX!} label={hoverLabel} plotHeight={plotHeight} /> : null}
       <text x={CHART_WIDTH / 2} y={CHART_HEIGHT - 14} textAnchor="middle" className="raw-log-viz-axis-title">
         Case duration
       </text>
@@ -655,6 +753,7 @@ function EventsPerTimeChart({
   plotHeight: number;
 }) {
   const maxCount = Math.max(...timeBins.map((bin) => bin.count), 1);
+  const [hoverX, setHoverX] = useState<number | null>(null);
   const points = timeBins.map((bin, index) => {
     const x = MARGIN.left + (timeBins.length === 1 ? plotWidth / 2 : (index / (timeBins.length - 1)) * plotWidth);
     const y = MARGIN.top + plotHeight - (bin.count / maxCount) * plotHeight;
@@ -662,9 +761,56 @@ function EventsPerTimeChart({
   });
   const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
   const areaPath = `${path} L ${MARGIN.left + plotWidth} ${MARGIN.top + plotHeight} L ${MARGIN.left} ${MARGIN.top + plotHeight} Z`;
+  const hoverData =
+    hoverX === null || !points.length
+      ? null
+      : (() => {
+          const xRatio = (hoverX - MARGIN.left) / Math.max(plotWidth, 1);
+          if (points.length === 1) {
+            const count = points[0].count;
+            return {
+              x: hoverX,
+              y: MARGIN.top + plotHeight - (count / maxCount) * plotHeight,
+              timeLabel: formatUtcDate(points[0].centerMs, true),
+              countLabel: formatEventCountLabel(count),
+            };
+          }
+
+          const interpolatedIndex = xRatio * (points.length - 1);
+          const leftIndex = clamp(Math.floor(interpolatedIndex), 0, points.length - 1);
+          const rightIndex = clamp(Math.ceil(interpolatedIndex), 0, points.length - 1);
+          const segmentRatio = interpolatedIndex - leftIndex;
+          const leftPoint = points[leftIndex];
+          const rightPoint = points[rightIndex];
+          const interpolatedCount = leftPoint.count + (rightPoint.count - leftPoint.count) * segmentRatio;
+          const interpolatedTimeMs = leftPoint.centerMs + (rightPoint.centerMs - leftPoint.centerMs) * segmentRatio;
+
+          return {
+            x: hoverX,
+            y: MARGIN.top + plotHeight - (interpolatedCount / maxCount) * plotHeight,
+            timeLabel: formatUtcDate(interpolatedTimeMs, true),
+            countLabel: formatEventCountLabel(interpolatedCount),
+          };
+        })();
 
   return (
-    <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="raw-log-viz-svg" aria-label="Events per time">
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      className="raw-log-viz-svg"
+      aria-label="Events per time"
+      onMouseMove={(event) => {
+        const hoverPoint = readSvgHoverPoint(event);
+        if (!hoverPoint) {
+          setHoverX(null);
+          return;
+        }
+
+        const inXRange = hoverPoint.x >= MARGIN.left && hoverPoint.x <= MARGIN.left + plotWidth;
+        const inYRange = hoverPoint.y >= MARGIN.top && hoverPoint.y <= MARGIN.top + plotHeight;
+        setHoverX(inXRange && inYRange ? clamp(hoverPoint.x, MARGIN.left, MARGIN.left + plotWidth) : null);
+      }}
+      onMouseLeave={() => setHoverX(null)}
+    >
       <ChartFrame
         plotHeight={plotHeight}
         plotWidth={plotWidth}
@@ -680,6 +826,13 @@ function EventsPerTimeChart({
           <title>{`${point.label} · ${point.count} events`}</title>
         </circle>
       ))}
+      {hoverData ? (
+        <>
+          <HoverXAxisGuide x={hoverData.x} label={hoverData.timeLabel} plotHeight={plotHeight} />
+          <HoverYAxisGuide y={hoverData.y} label={hoverData.countLabel} plotHeight={plotHeight} plotWidth={plotWidth} />
+          <circle cx={hoverData.x} cy={hoverData.y} r="4.6" className="raw-log-viz-hover-point" />
+        </>
+      ) : null}
       <text x={CHART_WIDTH / 2} y={CHART_HEIGHT - 14} textAnchor="middle" className="raw-log-viz-axis-title">
         Time
       </text>
@@ -775,6 +928,60 @@ function ChartFrame({
       <text x={MARGIN.left - 10} y={MARGIN.top + plotHeight} dominantBaseline="hanging" textAnchor="end" className="raw-log-viz-tick">
         {yMinLabel}
       </text>
+    </>
+  );
+}
+
+function HoverXAxisGuide({
+  x,
+  label,
+  plotHeight,
+}: {
+  x: number;
+  label: string;
+  plotHeight: number;
+}) {
+  const width = estimateHoverLabelWidth(label);
+  const rectX = clamp(x - width / 2, 6, CHART_WIDTH - width - 6);
+  const rectY = CHART_HEIGHT - 50;
+
+  return (
+    <>
+      <line x1={x} y1={MARGIN.top} x2={x} y2={MARGIN.top + plotHeight} className="raw-log-viz-hover-guide" />
+      <g className="raw-log-viz-hover-overlay">
+        <rect x={rectX} y={rectY} width={width} height={20} rx="6" className="raw-log-viz-hover-label-box" />
+        <text x={rectX + width / 2} y={rectY + 13.5} textAnchor="middle" className="raw-log-viz-hover-label-text">
+          {label}
+        </text>
+      </g>
+    </>
+  );
+}
+
+function HoverYAxisGuide({
+  y,
+  label,
+  plotHeight,
+  plotWidth,
+}: {
+  y: number;
+  label: string;
+  plotHeight: number;
+  plotWidth: number;
+}) {
+  const width = estimateHoverLabelWidth(label);
+  const rectX = Math.max(4, MARGIN.left - width - 8);
+  const rectY = clamp(y - 10, MARGIN.top + 4, MARGIN.top + plotHeight - 24);
+
+  return (
+    <>
+      <line x1={MARGIN.left} y1={y} x2={MARGIN.left + plotWidth} y2={y} className="raw-log-viz-hover-guide" />
+      <g className="raw-log-viz-hover-overlay">
+        <rect x={rectX} y={rectY} width={width} height={20} rx="6" className="raw-log-viz-hover-label-box" />
+        <text x={rectX + width / 2} y={rectY + 13.5} textAnchor="middle" className="raw-log-viz-hover-label-text">
+          {label}
+        </text>
+      </g>
     </>
   );
 }

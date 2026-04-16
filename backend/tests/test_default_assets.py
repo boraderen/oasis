@@ -30,7 +30,7 @@ class DefaultAssetTests(unittest.TestCase):
         Base.metadata.drop_all(self.engine)
         self.engine.dispose()
 
-    def test_ensure_default_assets_seeds_all_repo_assets_for_a_user(self) -> None:
+    def test_ensure_default_assets_seeds_root_repo_assets_for_a_user(self) -> None:
         with Session(self.engine) as db:
             user = User(username="seed-user", password_hash=None, is_guest=True)
             db.add(user)
@@ -41,14 +41,15 @@ class DefaultAssetTests(unittest.TestCase):
             self.created_paths = [asset.storage_path for asset in assets]
 
             self.assertTrue(seeded)
-            self.assertEqual(len(assets), 2)
+            self.assertEqual(len(assets), 3)
 
             filenames = {asset.filename for asset in assets}
             self.assertEqual(
                 filenames,
                 {
-                    "order-log.xes",
-                    "order-model.pnml",
+                    "event-log.xes",
+                    "normative-model.pnml",
+                    "order_process.jsonocel",
                 },
             )
 
