@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { metricPercent } from "@/components/analysis-ui";
 import { PageShell } from "@/components/page-shell";
-import { SvgViewer } from "@/components/svg-viewer";
+import { ProcessModelViewer } from "@/components/process-model-viewer";
 import { useAssetList } from "@/hooks/use-asset-list";
 import { apiRequest, persistPageState } from "@/lib/api";
-import { downloadTextFile } from "@/lib/downloads";
 import type { DiscoveryAlgorithm, DiscoveryResult } from "@/lib/types";
 import { useUiStore } from "@/store/ui-store";
 
@@ -23,23 +22,31 @@ function buildPnmlFilename(filename: string, algorithm: DiscoveryAlgorithm) {
   return `${baseName}-${algorithm}.pnml`;
 }
 
+function buildBpmnFilename(filename: string, algorithm: DiscoveryAlgorithm) {
+  const baseName = filename.replace(/\.[^.]+$/, "") || "discovered-model";
+  return `${baseName}-${algorithm}.bpmn`;
+}
+
 export default function DiscoveryPage() {
   const state = useUiStore((store) => store.discovery);
   const setPageState = useUiStore((store) => store.setPageState);
   const logsQuery = useAssetList("log");
-  const logs = logsQuery.data ?? [];
+  const logs = useMemo(() => logsQuery.data ?? [], [logsQuery.data]);
 
-  const saveState = (patch: Partial<typeof state>) => {
-    const nextState = { ...state, ...patch };
-    setPageState("discovery", patch);
-    void persistPageState("discovery", nextState);
-  };
+  const saveState = useCallback(
+    (patch: Partial<typeof state>) => {
+      const nextState = { ...state, ...patch };
+      setPageState("discovery", patch);
+      void persistPageState("discovery", nextState);
+    },
+    [setPageState, state],
+  );
 
   useEffect(() => {
     if (!state.selectedLogId && logs.length) {
       saveState({ selectedLogId: logs.at(-1)?.id ?? null });
     }
-  }, [logs, state.selectedLogId]);
+  }, [logs, saveState, state.selectedLogId]);
 
   const runDiscovery = async (algorithm: DiscoveryAlgorithm) => {
     if (!state.selectedLogId) {
@@ -99,7 +106,7 @@ export default function DiscoveryPage() {
   return (
     <PageShell
       title="Discovery"
-      description="Discover process models from the full selected log with Alpha, ILP, Heuristics, and Inductive mining, then compare full-width SVGs, conformance metrics, and model structure."
+      description="Discover process models from the full selected log with Alpha, ILP, Heuristics, and Inductive mining."
     >
       {logsQuery.error ? (
         <div className="error-banner">{logsQuery.error instanceof Error ? logsQuery.error.message : "Failed to load event logs"}</div>
@@ -128,35 +135,21 @@ export default function DiscoveryPage() {
       {state.selectedLogId ? (
         <div className="analysis-stack">
           {algorithmCards.map(({ algorithm, label, result, loading }) => (
-            <SvgViewer
+            <ProcessModelViewer
               key={algorithm}
               title={`${label} Miner`}
-              svg={result?.svg_content}
+              petriSvg={result?.svg_content}
+              bpmnSvg={result?.bpmn_svg_content}
+              pnmlContent={result?.pnml_content}
+              pnmlFilename={result ? buildPnmlFilename(result.log_metadata.filename, algorithm) : null}
+              bpmnContent={result?.bpmn_content}
+              bpmnFilename={result ? buildBpmnFilename(result.log_metadata.filename, algorithm) : null}
               stageClassName="white-stage algorithm-stage"
               fitKey={`${algorithm}-${result?.log_metadata.filename ?? "empty"}`}
               actions={
-                <>
-                  <button className="primary-button" onClick={() => void runDiscovery(algorithm)} disabled={loading}>
-                    {loading ? "Running…" : "Discover"}
-                  </button>
-                  <button
-                    className="secondary-button"
-                    type="button"
-                    disabled={!result?.pnml_content}
-                    onClick={() => {
-                      if (!result?.pnml_content) {
-                        return;
-                      }
-                      downloadTextFile(
-                        result.pnml_content,
-                        buildPnmlFilename(result.log_metadata.filename, algorithm),
-                        "application/xml;charset=utf-8",
-                      );
-                    }}
-                  >
-                    Download PNML
-                  </button>
-                </>
+                <button className="primary-button" onClick={() => void runDiscovery(algorithm)} disabled={loading}>
+                  {loading ? "Running…" : "Discover"}
+                </button>
               }
             >
               <DiscoveryControls
@@ -189,7 +182,7 @@ export default function DiscoveryPage() {
                 <Metric label="Trans." value={String(result?.num_transitions ?? "-")} />
                 <Metric label="Arcs" value={String(result?.num_arcs ?? "-")} />
               </div>
-            </SvgViewer>
+            </ProcessModelViewer>
           ))}
         </div>
       ) : (
@@ -211,7 +204,7 @@ function DiscoveryControls({
   onChange: (patch: Record<string, number>) => void;
 }) {
   if (algorithm === "alpha") {
-    return <div className="inline-note">Alpha Miner uses the default PM4Py configuration for this full-log discovery run.</div>;
+    return null;
   }
 
   return (

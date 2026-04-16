@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { activityForegroundColor, buildActivityColorMap, FootprintTableCard, metricPercent } from "@/components/analysis-ui";
 import { DynamicDfgViewer, buildDfgDataFromInsights } from "@/components/analysis/dynamic-dfg-viewer";
 import { PageShell } from "@/components/page-shell";
+import { ProcessModelViewer } from "@/components/process-model-viewer";
 import { SvgViewer } from "@/components/svg-viewer";
 import { useAssetList } from "@/hooks/use-asset-list";
 import { apiRequest, persistPageState } from "@/lib/api";
@@ -17,6 +18,11 @@ import type {
 import { useUiStore } from "@/store/ui-store";
 
 const performanceMetricOptions: DfgPerformanceMetric[] = ["mean", "median", "max", "min", "sum", "stdev"];
+
+function buildBpmnFilename(filename: string) {
+  const baseName = filename.replace(/\.[^.]+$/, "") || "process-model";
+  return `${baseName}.bpmn`;
+}
 
 export default function ConformancePage() {
   const state = useUiStore((store) => store.conformance);
@@ -157,7 +163,7 @@ export default function ConformancePage() {
   return (
     <PageShell
       title="Conformance"
-      description="Compare logs and models with full-width DFG and Petri net views, colored footprint matrices, and scroll-contained diagnostics."
+      description="Compare logs and models with full-width DFG, Petri net, and BPMN views, colored footprint matrices, and scroll-contained diagnostics."
     >
       {logsQuery.error || modelsQuery.error ? (
         <div className="error-banner">
@@ -540,10 +546,13 @@ function ConformanceResultView({
               fitKey={`log-${result.log_metadata?.filename ?? "empty"}`}
             />
           ) : null}
-          {result.model_svg ? (
-            <SvgViewer
+          {result.model_svg || result.model_bpmn_svg ? (
+            <ProcessModelViewer
               title={result.model_metadata?.filename ?? "Model"}
-              svg={result.model_svg}
+              petriSvg={result.model_svg}
+              bpmnSvg={result.model_bpmn_svg}
+              bpmnContent={result.model_bpmn_content}
+              bpmnFilename={result.model_metadata?.filename ? buildBpmnFilename(result.model_metadata.filename) : null}
               stageClassName="white-stage algorithm-stage"
               fitKey={`model-${result.model_metadata?.filename ?? "empty"}`}
             />
@@ -586,18 +595,24 @@ function ConformanceResultView({
             </div>
           ) : null}
 
-          {result.model1_svg ? (
-            <SvgViewer
+          {result.model1_svg || result.model1_bpmn_svg ? (
+            <ProcessModelViewer
               title={result.model1_metadata?.filename ?? "First model"}
-              svg={result.model1_svg}
+              petriSvg={result.model1_svg}
+              bpmnSvg={result.model1_bpmn_svg}
+              bpmnContent={result.model1_bpmn_content}
+              bpmnFilename={result.model1_metadata?.filename ? buildBpmnFilename(result.model1_metadata.filename) : null}
               stageClassName="white-stage algorithm-stage"
               fitKey={`model1-${result.model1_metadata?.filename ?? "empty"}`}
             />
           ) : null}
-          {result.model2_svg ? (
-            <SvgViewer
+          {result.model2_svg || result.model2_bpmn_svg ? (
+            <ProcessModelViewer
               title={result.model2_metadata?.filename ?? "Second model"}
-              svg={result.model2_svg}
+              petriSvg={result.model2_svg}
+              bpmnSvg={result.model2_bpmn_svg}
+              bpmnContent={result.model2_bpmn_content}
+              bpmnFilename={result.model2_metadata?.filename ? buildBpmnFilename(result.model2_metadata.filename) : null}
               stageClassName="white-stage algorithm-stage"
               fitKey={`model2-${result.model2_metadata?.filename ?? "empty"}`}
             />
@@ -712,15 +727,6 @@ function ColoredVariantChips({ activities }: { activities: string[] }) {
         );
       })}
     </div>
-  );
-}
-
-function MetricTile({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="metric-tile">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
   );
 }
 

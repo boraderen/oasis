@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
+import pm4py
 
 
 VALID_DISTRIBUTIONS = ["days_month", "months", "years", "hours", "days_week", "weeks"]
@@ -43,6 +44,14 @@ def render_text_file(callback: Callable[[str], None], suffix: str) -> str:
         return Path(path).read_text(encoding="utf-8")
     finally:
         Path(path).unlink(missing_ok=True)
+
+
+def render_bpmn_from_petri(net: Any, im: Any, fm: Any) -> tuple[str, str]:
+    """Convert a Petri net to BPMN and return both SVG and BPMN XML."""
+    bpmn_graph = pm4py.convert_to_bpmn(net, im, fm)
+    bpmn_svg = render_svg(lambda output_path: pm4py.save_vis_bpmn(bpmn_graph, output_path))
+    bpmn_content = render_text_file(lambda output_path: pm4py.write_bpmn(bpmn_graph, output_path), ".bpmn")
+    return bpmn_svg, bpmn_content
 
 
 def serialize_value(value: Any) -> Any:
