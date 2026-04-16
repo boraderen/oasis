@@ -1,0 +1,15 @@
+[project]
+name = "oasis"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi==0.115.5",
+    "graphviz==0.21",
+    "pandas==2.2.3",
+    "passlib[bcrypt]==1.7.4",
+    "pm4py==2.7.11",
+    "python-jose[cryptography]==3.3.0",
+    "python-multipart==0.0.17",
+    "sqlalchemy==2.0.36",
+    "uvicorn[standard]==0.32.0",
+]

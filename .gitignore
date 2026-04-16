@@ -1,0 +1,25 @@
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+.venv-backend/
+
+# Backend runtime data
+backend/data/oasis.db
+backend/data/assets/**
+!backend/data/assets/.gitkeep
+
+# Frontend build and local environment
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/node_modules/
+frontend/.env*
+frontend/next-env.d.ts
+frontend/*.tsbuildinfo
+
+# Package manager logs
+npm-debug.log*

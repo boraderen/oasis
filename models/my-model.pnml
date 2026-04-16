@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pnml xmlns="http://www.pnml.org/version-2009/grammar/pnml">
+  <net id="net1" type="http://www.pnml.org/version-2009/grammar/ptnet">
+    <name><text>Sequential Process Net</text></name>
+
+    <!-- Places -->
+    <place id="p_start">
+      <name><text>start</text></name>
+      <initialMarking><text>1</text></initialMarking>
+    </place>
+    <place id="p1"><name><text>p1</text></name></place>
+    <place id="p2"><name><text>p2</text></name></place>
+    <place id="p3"><name><text>p3</text></name></place>
+    <place id="p4"><name><text>p4</text></name></place>
+    <place id="p5"><name><text>p5</text></name></place>
+    <place id="p6"><name><text>p6</text></name></place>
+    <place id="p_end"><name><text>end</text></name></place>
+
+    <!-- Transitions (match activities in the XES) -->
+    <transition id="t_create_case">
+      <name><text>Create Case</text></name>
+    </transition>
+    <transition id="t_approve">
+      <name><text>Approve</text></name>
+    </transition>
+    <transition id="t_schedule">
+      <name><text>Schedule</text></name>
+    </transition>
+    <transition id="t_exec_a">
+      <name><text>Execute Task A</text></name>
+    </transition>
+    <transition id="t_exec_b">
+      <name><text>Execute Task B</text></name>
+    </transition>
+    <transition id="t_review">
+      <name><text>Review</text></name>
+    </transition>
+    <transition id="t_close_case">
+      <name><text>Close Case</text></name>
+    </transition>
+
+    <!-- Arcs (sequential flow: start -> Create Case -> ... -> Close Case -> end) -->
+    <arc id="a0" source="p_start" target="t_create_case"/>
+    <arc id="a1" source="t_create_case" target="p1"/>
+
+    <arc id="a2" source="p1" target="t_approve"/>
+    <arc id="a3" source="t_approve" target="p2"/>
+
+    <arc id="a4" source="p2" target="t_schedule"/>
+    <arc id="a5" source="t_schedule" target="p3"/>
+
+    <arc id="a6" source="p3" target="t_exec_a"/>
+    <arc id="a7" source="t_exec_a" target="p4"/>
+
+    <arc id="a8" source="p4" target="t_exec_b"/>
+    <arc id="a9" source="t_exec_b" target="p5"/>
+
+    <arc id="a10" source="p5" target="t_review"/>
+    <arc id="a11" source="t_review" target="p6"/>
+
+    <arc id="a12" source="p6" target="t_close_case"/>
+    <arc id="a13" source="t_close_case" target="p_end"/>
+
+  </net>
+</pnml>
