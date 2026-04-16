@@ -53,8 +53,6 @@ Then open:
 - Frontend: [http://localhost:3000](http://localhost:3000)
 - Backend API: [http://localhost:8000](http://localhost:8000)
 
-On first use, sign in, register, or continue as guest. Oasis seeds default sample assets for each user, so you can start exploring immediately.
-
 Stop the stack with:
 
 ```bash
