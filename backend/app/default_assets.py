@@ -1,7 +1,6 @@
 """Seed bundled assets for user workspaces."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Iterator
 
@@ -16,16 +15,9 @@ from .services.logs import get_log_metadata
 from .storage import delete_file, save_file_copy
 
 
-
-def _repo_root() -> Path:
-    raw = os.getenv("OASIS_REPO_ROOT")
-    if raw:
-        return Path(raw).expanduser().resolve()
-    return BASE_DIR.parent
-
-
-DEFAULT_LOG_DIR = _repo_root() / "logs"
-DEFAULT_MODEL_DIR = _repo_root() / "models"
+DEFAULT_ASSET_DIR = BASE_DIR / "default_assets"
+DEFAULT_LOG_DIR = DEFAULT_ASSET_DIR / "logs"
+DEFAULT_MODEL_DIR = DEFAULT_ASSET_DIR / "models"
 
 
 def _infer_asset_kind(source: Path) -> str | None:
