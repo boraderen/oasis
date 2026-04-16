@@ -7,8 +7,9 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from backend.app.database import Base
-from backend.app.default_assets import ensure_default_assets
+from backend.app.default_assets import DEFAULT_LOG_DIR, DEFAULT_MODEL_DIR, ensure_default_assets
 from backend.app.models import Asset, User
+from backend.app.services.io import SUPPORTED_LOG_SUFFIXES, SUPPORTED_MODEL_SUFFIXES, SUPPORTED_OCEL_SUFFIXES
 from backend.app.storage import ensure_storage
 
 
@@ -30,25 +31,32 @@ class DefaultAssetTests(unittest.TestCase):
         Base.metadata.drop_all(self.engine)
         self.engine.dispose()
 
-    def test_ensure_default_assets_seeds_all_repo_assets_for_a_user(self) -> None:
+    def test_ensure_default_assets_matches_bundled_backend_assets_for_a_user(self) -> None:
         with Session(self.engine) as db:
             user = User(username="seed-user", password_hash=None, is_guest=True)
             db.add(user)
             db.flush()
 
+            expected_filenames = set()
+            for directory, supported_suffixes in (
+                (DEFAULT_LOG_DIR, SUPPORTED_LOG_SUFFIXES | SUPPORTED_OCEL_SUFFIXES),
+                (DEFAULT_MODEL_DIR, SUPPORTED_MODEL_SUFFIXES),
+            ):
+                if not directory.exists():
+                    continue
+                for source in directory.iterdir():
+                    if source.is_file() and source.suffix.lower() in supported_suffixes:
+                        expected_filenames.add(source.name)
+
             seeded = ensure_default_assets(db, user)
             assets = list(db.scalars(select(Asset).where(Asset.owner_id == user.id)).all())
             self.created_paths = [asset.storage_path for asset in assets]
 
-            self.assertTrue(seeded)
-            self.assertGreaterEqual(len(assets), 1)
+            self.assertEqual(seeded, bool(expected_filenames))
+            self.assertEqual(len(assets), len(expected_filenames))
 
             filenames = {asset.filename for asset in assets}
-            self.assertIn("basic_log.xes", filenames)
-            self.assertIn("event-log.xes", filenames)
-            self.assertIn("example_log.jsonocel", filenames)
-            self.assertIn("normative-model.pnml", filenames)
-            self.assertIn("my-model.pnml", filenames)
+            self.assertEqual(filenames, expected_filenames)
 
             seeded_again = ensure_default_assets(db, user)
             assets_again = list(db.scalars(select(Asset).where(Asset.owner_id == user.id)).all())

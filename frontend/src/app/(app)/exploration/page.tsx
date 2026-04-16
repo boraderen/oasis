@@ -25,7 +25,7 @@ export default function ExplorationPage() {
   const setPageState = useUiStore((store) => store.setPageState);
   const logsQuery = useAssetList("log");
 
-  const logs = logsQuery.data ?? [];
+  const logs = useMemo(() => logsQuery.data ?? [], [logsQuery.data]);
 
   const saveState = (patch: Partial<typeof state>, options?: { persist?: boolean }) => {
     const nextState = { ...state, ...patch };
@@ -36,10 +36,14 @@ export default function ExplorationPage() {
   };
 
   useEffect(() => {
-    if (!state.selectedLogId && logs.length) {
-      saveState({ selectedLogId: logs.at(-1)?.id ?? null });
+    if (state.selectedLogId || !logs.length) {
+      return;
     }
-  }, [logs, state.selectedLogId]);
+
+    const selectedLogId = logs.at(-1)?.id ?? null;
+    setPageState("exploration", { selectedLogId });
+    void persistPageState("exploration", { ...useUiStore.getState().exploration, selectedLogId });
+  }, [logs, setPageState, state.selectedLogId]);
 
   const explore = async () => {
     if (!state.selectedLogId) {
@@ -78,7 +82,6 @@ export default function ExplorationPage() {
   const dfgData = useMemo(() => (state.result ? buildDfgDataFromInsights(state.result.insights) : null), [state.result]);
   const previewLimit = previewLimitOptions.includes(state.eventPreviewLimit) ? state.eventPreviewLimit : 5;
   const vizGroup: VizGroup = state.activeVisualization === "temporal" ? "temporal" : "charts";
-  const temporalVisualizationMode = state.activeVisualization === "distribution" ? "distribution" : "time";
 
   const previewRows = useMemo(
     () => (state.result?.preview_events ?? state.result?.first_20_events ?? []).slice(0, previewLimit),
@@ -176,10 +179,10 @@ export default function ExplorationPage() {
           title="Log Visualizations"
           data={state.result?.visualization_data ?? null}
           vizGroup={vizGroup}
-          mode={temporalVisualizationMode}
           distributionType={state.distributionType as DistributionType}
           colorMap={activityColors}
           emptyMessage="Explore a log to unlock dotted charts and temporal visualizations."
+          enableChartZoom
           actions={
             <>
               <button

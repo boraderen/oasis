@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 
 import { formatDuration } from "@/components/analysis-ui";
-import type { DistributionType, LogVisualizationData, VisualizationMode } from "@/lib/types";
+import type { DistributionType, LogVisualizationData } from "@/lib/types";
 
 const CHART_WIDTH = 680;
 const CHART_HEIGHT = 320;
@@ -42,8 +42,50 @@ type DurationBin = {
   count: number;
 };
 
+type SvgHoverPoint = {
+  x: number;
+  y: number;
+};
+
+type DottedChartCircle = {
+  key: string;
+  x: number;
+  y: number;
+  color: string;
+  title: string;
+};
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function readSvgHoverPoint(event: React.MouseEvent<SVGSVGElement>): SvgHoverPoint | null {
+  const bounds = event.currentTarget.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) {
+    return null;
+  }
+
+  return {
+    x: ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH,
+    y: ((event.clientY - bounds.top) / bounds.height) * CHART_HEIGHT,
+  };
+}
+
+function estimateHoverLabelWidth(label: string) {
+  return Math.max(48, label.length * 7.1 + 18);
+}
+
+function formatEventCount(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  return rounded.toLocaleString("en", {
+    minimumFractionDigits: Number.isInteger(rounded) ? 0 : 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+function formatEventCountLabel(value: number) {
+  const rounded = Math.round(value * 10) / 10;
+  return `${formatEventCount(rounded)} ${Math.abs(rounded - 1) < 0.05 ? "event" : "events"}`;
 }
 
 function formatUtcDate(timestampMs: number, withTime = false) {
@@ -207,28 +249,31 @@ function useParsedEvents(data: LogVisualizationData | null) {
 }
 
 export type VizGroup = "charts" | "temporal";
+type ZoomableChartKey = "dotted" | "duration" | "time" | "distribution";
 
 export function LogVisualizationViewer({
   title,
   data,
   vizGroup,
-  mode,
   distributionType,
   actions,
   colorMap,
   emptyMessage,
+  enableChartZoom = false,
 }: {
   title: string;
   data: LogVisualizationData | null;
   vizGroup: VizGroup;
-  mode: VisualizationMode;
   distributionType: DistributionType;
   actions?: React.ReactNode;
   colorMap: Record<string, string>;
   emptyMessage: string;
+  enableChartZoom?: boolean;
 }) {
   const parsedEvents = useParsedEvents(data);
   const caseDurations = useMemo(() => data?.case_durations ?? [], [data]);
+  const [zoomedChartKey, setZoomedChartKey] = useState<ZoomableChartKey | null>(null);
+  const dottedChartDialogTitleId = useId();
 
   const dottedPoints = useMemo(() => {
     if (!parsedEvents.length) {
@@ -258,11 +303,129 @@ export function LogVisualizationViewer({
     [distributionType, parsedEvents],
   );
   const durationHistogram = useMemo(() => buildDurationHistogram(caseDurations), [caseDurations]);
-  const secondaryMode = mode === "distribution" ? "distribution" : "time";
 
   const plotWidth = CHART_WIDTH - MARGIN.left - MARGIN.right;
   const plotHeight = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;
   const caseCount = Math.max(...parsedEvents.map((point) => point.caseIndex), -1) + 1;
+  const dottedChartProps = {
+    colorMap,
+    caseCount,
+    plotHeight,
+    plotWidth,
+    points: dottedPoints,
+    totalEvents: parsedEvents.length,
+  };
+  const durationChart = (
+    <DurationHistogram
+      caseDurations={caseDurations}
+      histogram={durationHistogram}
+      plotHeight={plotHeight}
+      plotWidth={plotWidth}
+    />
+  );
+  const timeChart = <EventsPerTimeChart plotHeight={plotHeight} plotWidth={plotWidth} timeBins={timeBins} />;
+  const distributionChart = (
+    <DistributionChart
+      bars={distributionBars}
+      distributionType={distributionType}
+      plotHeight={plotHeight}
+      plotWidth={plotWidth}
+    />
+  );
+  const zoomedChart =
+    zoomedChartKey === "dotted" && enableChartZoom && dottedPoints.length
+      ? {
+          title: "Dotted chart",
+          description: "Expanded view of event points over cases and time.",
+          closeLabel: "Close zoomed dotted chart",
+          chart: <DottedChart {...dottedChartProps} />,
+          summary: (
+            <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+              <span>{parsedEvents.length.toLocaleString()} events</span>
+              <span>{caseCount.toLocaleString()} cases</span>
+              {dottedPoints.length !== parsedEvents.length ? <span>{dottedPoints.length.toLocaleString()} rendered points</span> : null}
+            </div>
+          ),
+        }
+      : zoomedChartKey === "duration" && enableChartZoom && caseDurations.length
+        ? {
+            title: "Case duration",
+            description: "Expanded view of case throughput time distribution.",
+            closeLabel: "Close zoomed case duration chart",
+            chart: durationChart,
+            summary: (
+              <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+                <span>{caseDurations.length.toLocaleString()} case durations</span>
+                <span>Median {formatDuration(median(caseDurations.map((item) => item.duration_seconds)))}</span>
+              </div>
+            ),
+          }
+        : zoomedChartKey === "time" && enableChartZoom && timeBins.length
+          ? {
+              title: "Events per time",
+              description: "Expanded view of event volume over the full timeline.",
+              closeLabel: "Close zoomed events per time chart",
+              chart: timeChart,
+              summary: (
+                <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+                  <span>{parsedEvents.length.toLocaleString()} events</span>
+                  <span>{timeBins.length} time bins</span>
+                </div>
+              ),
+            }
+          : zoomedChartKey === "distribution" && enableChartZoom && distributionBars.length
+            ? {
+                title: "Temporal event distribution",
+                description: "Expanded view of grouped event counts by temporal bucket.",
+                closeLabel: "Close zoomed temporal event distribution chart",
+                chart: distributionChart,
+                summary: (
+                  <div className="viewer-summary-row compact raw-log-viz-modal-summary">
+                    <span>{parsedEvents.length.toLocaleString()} events</span>
+                    <span>{distributionBars.length} buckets</span>
+                  </div>
+                ),
+              }
+            : null;
+  const isZoomedChartVisible = zoomedChart !== null;
+
+  useEffect(() => {
+    if (!isZoomedChartVisible) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setZoomedChartKey(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isZoomedChartVisible]);
+
+  const renderChartStage = ({
+    chartKey,
+    chart,
+    buttonLabel,
+  }: {
+    chartKey: ZoomableChartKey;
+    chart: React.ReactNode;
+    buttonLabel: string;
+  }) =>
+    enableChartZoom ? (
+      <button
+        type="button"
+        className="raw-log-viz-stage raw-log-viz-stage-button compact"
+        onClick={() => setZoomedChartKey(chartKey)}
+        aria-label={buttonLabel}
+      >
+        {chart}
+        <span className="raw-log-viz-zoom-hint">Click to zoom</span>
+      </button>
+    ) : (
+      <div className="raw-log-viz-stage compact">{chart}</div>
+    );
 
   const content = !data || (!parsedEvents.length && !caseDurations.length) ? (
     <div className="empty-panel viewer-empty">{emptyMessage}</div>
@@ -277,20 +440,17 @@ export function LogVisualizationViewer({
                 <p>Event points over cases and time.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {dottedPoints.length ? (
-                <DottedChart
-                  colorMap={colorMap}
-                  caseCount={caseCount}
-                  plotHeight={plotHeight}
-                  plotWidth={plotWidth}
-                  points={dottedPoints}
-                  totalEvents={parsedEvents.length}
-                />
-              ) : (
+            {dottedPoints.length ? (
+              renderChartStage({
+                chartKey: "dotted",
+                chart: <DottedChart {...dottedChartProps} />,
+                buttonLabel: "Open zoomed dotted chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No event points available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{parsedEvents.length.toLocaleString()} events</span>
               <span>{caseCount.toLocaleString()} cases</span>
@@ -313,13 +473,17 @@ export function LogVisualizationViewer({
                 <p>Distribution of case throughput times.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {caseDurations.length ? (
-                <DurationHistogram caseDurations={caseDurations} histogram={durationHistogram} plotHeight={plotHeight} plotWidth={plotWidth} />
-              ) : (
+            {caseDurations.length ? (
+              renderChartStage({
+                chartKey: "duration",
+                chart: durationChart,
+                buttonLabel: "Open zoomed case duration chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No case durations available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{caseDurations.length.toLocaleString()} case durations</span>
               <span>Median {formatDuration(median(caseDurations.map((item) => item.duration_seconds)))}</span>
@@ -335,13 +499,17 @@ export function LogVisualizationViewer({
                 <p>Event volume over the full timeline.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {timeBins.length ? (
-                <EventsPerTimeChart plotHeight={plotHeight} plotWidth={plotWidth} timeBins={timeBins} />
-              ) : (
+            {timeBins.length ? (
+              renderChartStage({
+                chartKey: "time",
+                chart: timeChart,
+                buttonLabel: "Open zoomed events per time chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No temporal data available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{parsedEvents.length.toLocaleString()} events</span>
               <span>{timeBins.length} time bins</span>
@@ -351,17 +519,21 @@ export function LogVisualizationViewer({
           <section className="log-viz-card">
             <div className="log-viz-card-header">
               <div>
-                <h4>Event distribution</h4>
+                <h4>Temporal event distribution</h4>
                 <p>Grouped event counts by temporal bucket.</p>
               </div>
             </div>
-            <div className="raw-log-viz-stage compact">
-              {distributionBars.length ? (
-                <DistributionChart bars={distributionBars} distributionType={distributionType} plotHeight={plotHeight} plotWidth={plotWidth} />
-              ) : (
+            {distributionBars.length ? (
+              renderChartStage({
+                chartKey: "distribution",
+                chart: distributionChart,
+                buttonLabel: "Open zoomed temporal event distribution chart",
+              })
+            ) : (
+              <div className="raw-log-viz-stage compact">
                 <div className="empty-panel viewer-empty">No distribution data available.</div>
-              )}
-            </div>
+              </div>
+            )}
             <div className="viewer-summary-row compact">
               <span>{parsedEvents.length.toLocaleString()} events</span>
               <span>{distributionBars.length} buckets</span>
@@ -379,6 +551,34 @@ export function LogVisualizationViewer({
         <div className="panel-actions viewer-toolbar">{actions}</div>
       </div>
       {content}
+      {zoomedChart ? (
+        <div className="raw-log-viz-modal" role="presentation" onClick={() => setZoomedChartKey(null)}>
+          <div
+            className="raw-log-viz-modal-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={dottedChartDialogTitleId}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="raw-log-viz-modal-header">
+              <div>
+                <h4 id={dottedChartDialogTitleId}>{zoomedChart.title}</h4>
+                <p>{zoomedChart.description}</p>
+              </div>
+              <button
+                className="ghost-button raw-log-viz-modal-close"
+                type="button"
+                onClick={() => setZoomedChartKey(null)}
+                aria-label={zoomedChart.closeLabel}
+              >
+                Close
+              </button>
+            </div>
+            <div className="raw-log-viz-stage raw-log-viz-stage-modal">{zoomedChart.chart}</div>
+            {zoomedChart.summary}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -402,19 +602,42 @@ function DottedChart({
   const maxMs = Math.max(...points.map((point) => point.timestampMs));
   const timeRange = Math.max(maxMs - minMs, 1);
   const caseRange = Math.max(caseCount - 1, 1);
+  const renderedPoints = useMemo<DottedChartCircle[]>(
+    () =>
+      points.map((point, index) => ({
+        key: `${point.caseId}-${index}`,
+        x: MARGIN.left + ((point.timestampMs - minMs) / timeRange) * plotWidth,
+        y: MARGIN.top + plotHeight - (point.caseIndex / caseRange) * plotHeight,
+        color: colorMap[point.activity] ?? VIZ_ACCENT,
+        title: `${point.activity} · ${point.caseId} · ${formatUtcDate(point.timestampMs, true)}`,
+      })),
+    [caseRange, colorMap, minMs, plotHeight, plotWidth, points, timeRange],
+  );
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const hoverLabel =
+    hoverX === null ? null : formatUtcDate(minMs + ((hoverX - MARGIN.left) / Math.max(plotWidth, 1)) * timeRange, true);
 
   return (
-    <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="raw-log-viz-svg" aria-label="Dotted chart">
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      className="raw-log-viz-svg"
+      aria-label="Dotted chart"
+      onMouseMove={(event) => {
+        const hoverPoint = readSvgHoverPoint(event);
+        if (!hoverPoint) {
+          setHoverX(null);
+          return;
+        }
+
+        const inXRange = hoverPoint.x >= MARGIN.left && hoverPoint.x <= MARGIN.left + plotWidth;
+        const inYRange = hoverPoint.y >= MARGIN.top && hoverPoint.y <= CHART_HEIGHT - 8;
+        setHoverX(inXRange && inYRange ? clamp(hoverPoint.x, MARGIN.left, MARGIN.left + plotWidth) : null);
+      }}
+      onMouseLeave={() => setHoverX(null)}
+    >
       <ChartFrame plotHeight={plotHeight} plotWidth={plotWidth} xEndLabel={formatUtcDate(maxMs)} xStartLabel={formatUtcDate(minMs)} yMaxLabel={`${Math.max(caseCount, 1)}`} yMinLabel="1" />
-      {points.map((point, index) => {
-        const x = MARGIN.left + ((point.timestampMs - minMs) / timeRange) * plotWidth;
-        const y = MARGIN.top + plotHeight - (point.caseIndex / caseRange) * plotHeight;
-        return (
-          <circle key={`${point.caseId}-${index}`} cx={x} cy={y} r="2.2" fill={colorMap[point.activity] ?? VIZ_ACCENT} opacity="0.82">
-            <title>{`${point.activity} · ${point.caseId} · ${formatUtcDate(point.timestampMs, true)}`}</title>
-          </circle>
-        );
-      })}
+      <DottedChartPointCloud points={renderedPoints} />
+      {hoverLabel ? <HoverXAxisGuide x={hoverX!} label={hoverLabel} plotHeight={plotHeight} /> : null}
       <text x={CHART_WIDTH / 2} y={CHART_HEIGHT - 14} textAnchor="middle" className="raw-log-viz-axis-title">
         Timeline
       </text>
@@ -427,6 +650,18 @@ function DottedChart({
     </svg>
   );
 }
+
+const DottedChartPointCloud = memo(function DottedChartPointCloud({ points }: { points: DottedChartCircle[] }) {
+  return (
+    <>
+      {points.map((point) => (
+        <circle key={point.key} cx={point.x} cy={point.y} r="2.2" fill={point.color} opacity="0.82">
+          <title>{point.title}</title>
+        </circle>
+      ))}
+    </>
+  );
+});
 
 function DurationHistogram({
   caseDurations,
@@ -441,9 +676,29 @@ function DurationHistogram({
 }) {
   const maxCount = Math.max(...histogram.map((bin) => bin.count), 1);
   const barWidth = plotWidth / Math.max(histogram.length, 1);
+  const maxDuration = histogram.at(-1)?.end ?? 0;
+  const [hoverX, setHoverX] = useState<number | null>(null);
+  const hoverLabel =
+    hoverX === null ? null : formatDuration(((hoverX - MARGIN.left) / Math.max(plotWidth, 1)) * maxDuration);
 
   return (
-    <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="raw-log-viz-svg" aria-label="Case duration histogram">
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      className="raw-log-viz-svg"
+      aria-label="Case duration histogram"
+      onMouseMove={(event) => {
+        const hoverPoint = readSvgHoverPoint(event);
+        if (!hoverPoint) {
+          setHoverX(null);
+          return;
+        }
+
+        const inXRange = hoverPoint.x >= MARGIN.left && hoverPoint.x <= MARGIN.left + plotWidth;
+        const inYRange = hoverPoint.y >= MARGIN.top && hoverPoint.y <= CHART_HEIGHT - 8;
+        setHoverX(inXRange && inYRange ? clamp(hoverPoint.x, MARGIN.left, MARGIN.left + plotWidth) : null);
+      }}
+      onMouseLeave={() => setHoverX(null)}
+    >
       <ChartFrame
         plotHeight={plotHeight}
         plotWidth={plotWidth}
@@ -477,6 +732,7 @@ function DurationHistogram({
           <stop offset="100%" stopColor={VIZ_ACCENT_DARK} />
         </linearGradient>
       </defs>
+      {hoverLabel ? <HoverXAxisGuide x={hoverX!} label={hoverLabel} plotHeight={plotHeight} /> : null}
       <text x={CHART_WIDTH / 2} y={CHART_HEIGHT - 14} textAnchor="middle" className="raw-log-viz-axis-title">
         Case duration
       </text>
@@ -497,6 +753,7 @@ function EventsPerTimeChart({
   plotHeight: number;
 }) {
   const maxCount = Math.max(...timeBins.map((bin) => bin.count), 1);
+  const [hoverX, setHoverX] = useState<number | null>(null);
   const points = timeBins.map((bin, index) => {
     const x = MARGIN.left + (timeBins.length === 1 ? plotWidth / 2 : (index / (timeBins.length - 1)) * plotWidth);
     const y = MARGIN.top + plotHeight - (bin.count / maxCount) * plotHeight;
@@ -504,9 +761,56 @@ function EventsPerTimeChart({
   });
   const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
   const areaPath = `${path} L ${MARGIN.left + plotWidth} ${MARGIN.top + plotHeight} L ${MARGIN.left} ${MARGIN.top + plotHeight} Z`;
+  const hoverData =
+    hoverX === null || !points.length
+      ? null
+      : (() => {
+          const xRatio = (hoverX - MARGIN.left) / Math.max(plotWidth, 1);
+          if (points.length === 1) {
+            const count = points[0].count;
+            return {
+              x: hoverX,
+              y: MARGIN.top + plotHeight - (count / maxCount) * plotHeight,
+              timeLabel: formatUtcDate(points[0].centerMs, true),
+              countLabel: formatEventCountLabel(count),
+            };
+          }
+
+          const interpolatedIndex = xRatio * (points.length - 1);
+          const leftIndex = clamp(Math.floor(interpolatedIndex), 0, points.length - 1);
+          const rightIndex = clamp(Math.ceil(interpolatedIndex), 0, points.length - 1);
+          const segmentRatio = interpolatedIndex - leftIndex;
+          const leftPoint = points[leftIndex];
+          const rightPoint = points[rightIndex];
+          const interpolatedCount = leftPoint.count + (rightPoint.count - leftPoint.count) * segmentRatio;
+          const interpolatedTimeMs = leftPoint.centerMs + (rightPoint.centerMs - leftPoint.centerMs) * segmentRatio;
+
+          return {
+            x: hoverX,
+            y: MARGIN.top + plotHeight - (interpolatedCount / maxCount) * plotHeight,
+            timeLabel: formatUtcDate(interpolatedTimeMs, true),
+            countLabel: formatEventCountLabel(interpolatedCount),
+          };
+        })();
 
   return (
-    <svg viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`} className="raw-log-viz-svg" aria-label="Events per time">
+    <svg
+      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
+      className="raw-log-viz-svg"
+      aria-label="Events per time"
+      onMouseMove={(event) => {
+        const hoverPoint = readSvgHoverPoint(event);
+        if (!hoverPoint) {
+          setHoverX(null);
+          return;
+        }
+
+        const inXRange = hoverPoint.x >= MARGIN.left && hoverPoint.x <= MARGIN.left + plotWidth;
+        const inYRange = hoverPoint.y >= MARGIN.top && hoverPoint.y <= MARGIN.top + plotHeight;
+        setHoverX(inXRange && inYRange ? clamp(hoverPoint.x, MARGIN.left, MARGIN.left + plotWidth) : null);
+      }}
+      onMouseLeave={() => setHoverX(null)}
+    >
       <ChartFrame
         plotHeight={plotHeight}
         plotWidth={plotWidth}
@@ -522,6 +826,13 @@ function EventsPerTimeChart({
           <title>{`${point.label} · ${point.count} events`}</title>
         </circle>
       ))}
+      {hoverData ? (
+        <>
+          <HoverXAxisGuide x={hoverData.x} label={hoverData.timeLabel} plotHeight={plotHeight} />
+          <HoverYAxisGuide y={hoverData.y} label={hoverData.countLabel} plotHeight={plotHeight} plotWidth={plotWidth} />
+          <circle cx={hoverData.x} cy={hoverData.y} r="4.6" className="raw-log-viz-hover-point" />
+        </>
+      ) : null}
       <text x={CHART_WIDTH / 2} y={CHART_HEIGHT - 14} textAnchor="middle" className="raw-log-viz-axis-title">
         Time
       </text>
@@ -617,6 +928,60 @@ function ChartFrame({
       <text x={MARGIN.left - 10} y={MARGIN.top + plotHeight} dominantBaseline="hanging" textAnchor="end" className="raw-log-viz-tick">
         {yMinLabel}
       </text>
+    </>
+  );
+}
+
+function HoverXAxisGuide({
+  x,
+  label,
+  plotHeight,
+}: {
+  x: number;
+  label: string;
+  plotHeight: number;
+}) {
+  const width = estimateHoverLabelWidth(label);
+  const rectX = clamp(x - width / 2, 6, CHART_WIDTH - width - 6);
+  const rectY = CHART_HEIGHT - 50;
+
+  return (
+    <>
+      <line x1={x} y1={MARGIN.top} x2={x} y2={MARGIN.top + plotHeight} className="raw-log-viz-hover-guide" />
+      <g className="raw-log-viz-hover-overlay">
+        <rect x={rectX} y={rectY} width={width} height={20} rx="6" className="raw-log-viz-hover-label-box" />
+        <text x={rectX + width / 2} y={rectY + 13.5} textAnchor="middle" className="raw-log-viz-hover-label-text">
+          {label}
+        </text>
+      </g>
+    </>
+  );
+}
+
+function HoverYAxisGuide({
+  y,
+  label,
+  plotHeight,
+  plotWidth,
+}: {
+  y: number;
+  label: string;
+  plotHeight: number;
+  plotWidth: number;
+}) {
+  const width = estimateHoverLabelWidth(label);
+  const rectX = Math.max(4, MARGIN.left - width - 8);
+  const rectY = clamp(y - 10, MARGIN.top + 4, MARGIN.top + plotHeight - 24);
+
+  return (
+    <>
+      <line x1={MARGIN.left} y1={y} x2={MARGIN.left + plotWidth} y2={y} className="raw-log-viz-hover-guide" />
+      <g className="raw-log-viz-hover-overlay">
+        <rect x={rectX} y={rectY} width={width} height={20} rx="6" className="raw-log-viz-hover-label-box" />
+        <text x={rectX + width / 2} y={rectY + 13.5} textAnchor="middle" className="raw-log-viz-hover-label-text">
+          {label}
+        </text>
+      </g>
     </>
   );
 }
