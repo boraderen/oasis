@@ -165,6 +165,8 @@ export interface DiscoveryResult {
   message: string;
   status: string;
   svg_content: string;
+  bpmn_svg_content?: string;
+  bpmn_content?: string;
   pnml_content: string;
   log_metadata: AssetSummary;
   log_stats?: LogInsights;
@@ -200,6 +202,12 @@ export interface ConformanceResult {
   model_svg?: string;
   model1_svg?: string;
   model2_svg?: string;
+  model_bpmn_svg?: string;
+  model1_bpmn_svg?: string;
+  model2_bpmn_svg?: string;
+  model_bpmn_content?: string;
+  model1_bpmn_content?: string;
+  model2_bpmn_content?: string;
   num_events_1?: number;
   num_cases_1?: number;
   num_events_2?: number;

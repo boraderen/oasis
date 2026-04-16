@@ -7,7 +7,7 @@ import pandas as pd
 import pm4py
 
 from .assets import get_model_metadata
-from .common import count_footprint_differences, footprint_to_matrix, render_svg
+from .common import count_footprint_differences, footprint_to_matrix, render_bpmn_from_petri, render_svg
 from .dfg import render_log_dfgs
 from .evaluation import ensure_petri
 from .io import read_event_log, read_process_model
@@ -162,6 +162,7 @@ def conformance_log_model(log_path: str, log_filename: str, model_path: str, mod
         tbr_data = []
 
     model_svg = render_svg(lambda path: pm4py.save_vis_petri_net(net, im, fm, path))
+    model_bpmn_svg, model_bpmn_content = render_bpmn_from_petri(net, im, fm)
     log_svg, _ = render_log_dfgs(log)
 
     mean_fitness_combined = (tbr_fitness + align_fitness) / 2 if isinstance(align_fitness, (int, float)) else tbr_fitness
@@ -186,6 +187,8 @@ def conformance_log_model(log_path: str, log_filename: str, model_path: str, mod
         "alignment_data": alignment_data,
         "tbr_data": tbr_data,
         "model_svg": model_svg,
+        "model_bpmn_svg": model_bpmn_svg,
+        "model_bpmn_content": model_bpmn_content,
         "log_svg": log_svg,
         "tbr_fitness": tbr_fitness,
         "align_fitness": align_fitness,
@@ -252,6 +255,8 @@ def conformance_model_model(first_path: str, first_filename: str, second_path: s
     second_model, _ = read_process_model(second_path)
     net1, im1, fm1 = ensure_petri(first_model)
     net2, im2, fm2 = ensure_petri(second_model)
+    model1_bpmn_svg, model1_bpmn_content = render_bpmn_from_petri(net1, im1, fm1)
+    model2_bpmn_svg, model2_bpmn_content = render_bpmn_from_petri(net2, im2, fm2)
 
     footprints1 = pm4py.discover_footprints(net1, im1, fm1)
     footprints2 = pm4py.discover_footprints(net2, im2, fm2)
@@ -268,6 +273,10 @@ def conformance_model_model(first_path: str, first_filename: str, second_path: s
         "model2_metadata": get_model_metadata(second_path, second_filename),
         "model1_svg": render_svg(lambda path: pm4py.save_vis_petri_net(net1, im1, fm1, path)),
         "model2_svg": render_svg(lambda path: pm4py.save_vis_petri_net(net2, im2, fm2, path)),
+        "model1_bpmn_svg": model1_bpmn_svg,
+        "model1_bpmn_content": model1_bpmn_content,
+        "model2_bpmn_svg": model2_bpmn_svg,
+        "model2_bpmn_content": model2_bpmn_content,
         "num_places_1": len(net1.places),
         "num_transitions_1": len(net1.transitions),
         "num_arcs_1": len(net1.arcs),

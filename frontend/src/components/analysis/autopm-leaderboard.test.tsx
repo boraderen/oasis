@@ -8,6 +8,9 @@ function buildMetrics(): DiscoveryResult {
     message: "ok",
     status: "success",
     svg_content: "<svg></svg>",
+    bpmn_svg_content: "<svg></svg>",
+    bpmn_content: "<definitions></definitions>",
+    pnml_content: "<pnml></pnml>",
     log_metadata: {
       id: 1,
       kind: "log",

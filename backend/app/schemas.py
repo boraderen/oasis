@@ -364,6 +364,8 @@ class DiscoveryResultResponse(MessageStatusResponse):
     """Classic discovery result."""
 
     svg_content: str
+    bpmn_svg_content: str
+    bpmn_content: str
     pnml_content: str
     log_metadata: LogMetadataModel
     log_stats: LogInsightsModel | None = None
@@ -444,6 +446,12 @@ class ConformanceResultResponse(MessageStatusResponse):
     model_svg: str | None = None
     model1_svg: str | None = None
     model2_svg: str | None = None
+    model_bpmn_svg: str | None = None
+    model1_bpmn_svg: str | None = None
+    model2_bpmn_svg: str | None = None
+    model_bpmn_content: str | None = None
+    model1_bpmn_content: str | None = None
+    model2_bpmn_content: str | None = None
     num_events_1: int | None = None
     num_cases_1: int | None = None
     num_events_2: int | None = None

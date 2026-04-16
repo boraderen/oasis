@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 import pm4py
 
-from .common import render_svg, render_text_file
+from .common import render_bpmn_from_petri, render_svg, render_text_file
 from .evaluation import calculate_conformance_metrics
 from .io import read_event_log
 from .logs import get_log_insights, get_log_metadata
@@ -35,6 +35,7 @@ def discover_process_model(path: str, filename: str, algorithm: str, parameters:
     log = read_event_log(path)
     net, im, fm = discover_with_algorithm(log, algorithm, parameters)
     svg_content = render_svg(lambda output_path: pm4py.save_vis_petri_net(net, im, fm, output_path))
+    bpmn_svg_content, bpmn_content = render_bpmn_from_petri(net, im, fm)
     pnml_content = render_text_file(lambda output_path: pm4py.write_pnml(net, im, fm, output_path), ".pnml")
     metrics = calculate_conformance_metrics(log, net, im, fm)
 
@@ -42,6 +43,8 @@ def discover_process_model(path: str, filename: str, algorithm: str, parameters:
         "message": f"{algorithm.title()} discovery completed",
         "status": "success",
         "svg_content": svg_content,
+        "bpmn_svg_content": bpmn_svg_content,
+        "bpmn_content": bpmn_content,
         "pnml_content": pnml_content,
         "log_metadata": get_log_metadata(log, filename),
         "log_stats": get_log_insights(log),
