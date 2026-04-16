@@ -59,10 +59,3 @@ Stop the stack with:
 ```bash
 docker compose down
 ```
-
-## Notes
-
-- The frontend Docker setup is for local development.
-- The frontend is also built as a static export for GitHub Pages deployment.
-- The backend stores local runtime data in `backend/data/`.
-- Bundled sample logs and models are mounted into the backend for local use.
