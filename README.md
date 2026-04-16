@@ -2,7 +2,7 @@
 
 Oasis is a process mining workspace for exploring event logs, process models, and object-centric event logs in one place.
 
-It combines a Next.js frontend with a FastAPI backend and PM4Py-based analysis tools. The project includes starter assets so you can open it locally and begin exploring without collecting files first.
+It combines a Next.js frontend with a FastAPI backend and PM4Py-based analysis tools. The project includes starter assets.
 
 ## What Oasis Can Do
 
