@@ -2713,6 +2713,15 @@ textarea:focus {
   min-width: 18rem;
 }
 
+.loading-note {
+  max-width: 24rem;
+  margin: 0;
+  color: #90520b;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .loading-orbit {
   width: 3rem;
   height: 3rem;

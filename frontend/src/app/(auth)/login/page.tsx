@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import DotGrid from "@/components/dot-grid";
 import { useSession } from "@/components/session-provider";
 import { apiRequest } from "@/lib/api";
+import { BACKEND_WAKEUP_DELAY_MS, BACKEND_WAKEUP_MESSAGE } from "@/lib/backend-wakeup";
 import { setAuthToken } from "@/lib/auth-token";
 import type { AuthResponse } from "@/lib/types";
 
@@ -22,6 +23,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBackendWarning, setShowBackendWarning] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -29,9 +31,24 @@ export default function LoginPage() {
     }
   }, [loading, router, user]);
 
+  useEffect(() => {
+    if (!busy) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setShowBackendWarning(true);
+    }, BACKEND_WAKEUP_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [busy]);
+
   const submit = async () => {
     setBusy(true);
     setError(null);
+    setShowBackendWarning(false);
 
     try {
       const response = await apiRequest<AuthResponse>(`/api/auth/${mode}`, {
@@ -49,6 +66,7 @@ export default function LoginPage() {
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Authentication failed");
     } finally {
+      setShowBackendWarning(false);
       setBusy(false);
     }
   };
@@ -56,6 +74,7 @@ export default function LoginPage() {
   const continueAsGuest = async () => {
     setBusy(true);
     setError(null);
+    setShowBackendWarning(false);
 
     try {
       const response = await apiRequest<AuthResponse>("/api/auth/guest", {
@@ -72,6 +91,7 @@ export default function LoginPage() {
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Guest login failed");
     } finally {
+      setShowBackendWarning(false);
       setBusy(false);
     }
   };
@@ -156,6 +176,7 @@ export default function LoginPage() {
               </label>
 
               {error ? <div className={styles.error}>{error}</div> : null}
+              {showBackendWarning ? <div className={styles.notice}>{BACKEND_WAKEUP_MESSAGE}</div> : null}
 
               <div className={styles.actionStack}>
                 <button
