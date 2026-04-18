@@ -1,0 +1,38 @@
+name: Keep Backend Alive
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keep-backend-alive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve ping URL
+        env:
+          SECRET_PING_URL: ${{ secrets.BACKEND_PING_URL }}
+          VAR_PING_URL: ${{ vars.BACKEND_PING_URL }}
+          DEFAULT_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        run: |
+          if [ -n "$SECRET_PING_URL" ]; then
+            PING_URL="$SECRET_PING_URL"
+          elif [ -n "$VAR_PING_URL" ]; then
+            PING_URL="$VAR_PING_URL"
+          elif [ -n "$DEFAULT_API_URL" ]; then
+            PING_URL="$DEFAULT_API_URL"
+          else
+            echo "Set BACKEND_PING_URL as a repository secret or variable, or configure NEXT_PUBLIC_API_URL." >&2
+            exit 1
+          fi
+
+          printf 'PING_URL=%s\n' "$PING_URL" >> "$GITHUB_ENV"
+
+      - name: Ping backend
+        run: |
+          echo "Pinging backend..."
+          curl --fail --silent --show-error --location --max-time 30 --retry 2 --retry-delay 5 "$PING_URL"
