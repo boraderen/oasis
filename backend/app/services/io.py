@@ -42,6 +42,12 @@ def _guess_column(columns: Iterable[str], candidates: Iterable[str], required: b
     return None
 
 
+def _normalize_start_timestamp_column(frame: pd.DataFrame) -> pd.DataFrame:
+    if "start_timestamp" in frame.columns:
+        frame["start_timestamp"] = pd.to_datetime(frame["start_timestamp"], errors="coerce", utc=True)
+    return frame
+
+
 @lru_cache(maxsize=32)
 def _read_event_log_cached(path: str, mtime_ns: int) -> pd.DataFrame:
     suffix = Path(path).suffix.lower()
@@ -73,6 +79,7 @@ def _read_event_log_cached(path: str, mtime_ns: int) -> pd.DataFrame:
     log["case:concept:name"] = log["case:concept:name"].astype(str)
     log["concept:name"] = log["concept:name"].astype(str)
     log["time:timestamp"] = pd.to_datetime(log["time:timestamp"], errors="coerce", utc=True)
+    log = _normalize_start_timestamp_column(log)
     fallback_timestamps = pd.date_range(start=pd.Timestamp.utcnow(), periods=len(log), freq="s")
     log["time:timestamp"] = log["time:timestamp"].where(log["time:timestamp"].notna(), fallback_timestamps)
     return log.sort_values(["case:concept:name", "time:timestamp"], kind="stable").reset_index(drop=True)
@@ -104,23 +111,28 @@ def _read_ocel_cached(path: str, mtime_ns: int) -> Any:
     if suffix not in SUPPORTED_OCEL_SUFFIXES:
         raise ValueError("Unsupported OCEL format.")
     if suffix == ".csv":
-        return pm4py.read_ocel_csv(path)
-    try:
-        return pm4py.read_ocel(path)
-    except KeyError as exc:
-        if suffix not in {".jsonocel", ".json"} or str(exc).strip("'") not in {"ocel:global-event", "ocel:global-object"}:
-            raise
-
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        payload.setdefault("ocel:global-event", {})
-        payload.setdefault("ocel:global-object", {})
-        handle, normalized_path = tempfile.mkstemp(suffix=suffix)
-        os.close(handle)
-        Path(normalized_path).write_text(json.dumps(payload), encoding="utf-8")
+        ocel = pm4py.read_ocel_csv(path)
+    else:
         try:
-            return pm4py.read_ocel(normalized_path)
-        finally:
-            Path(normalized_path).unlink(missing_ok=True)
+            ocel = pm4py.read_ocel(path)
+        except KeyError as exc:
+            if suffix not in {".jsonocel", ".json"} or str(exc).strip("'") not in {"ocel:global-event", "ocel:global-object"}:
+                raise
+
+            payload = json.loads(Path(path).read_text(encoding="utf-8"))
+            payload.setdefault("ocel:global-event", {})
+            payload.setdefault("ocel:global-object", {})
+            handle, normalized_path = tempfile.mkstemp(suffix=suffix)
+            os.close(handle)
+            Path(normalized_path).write_text(json.dumps(payload), encoding="utf-8")
+            try:
+                ocel = pm4py.read_ocel(normalized_path)
+            finally:
+                Path(normalized_path).unlink(missing_ok=True)
+
+    if hasattr(ocel, "events") and isinstance(ocel.events, pd.DataFrame):
+        ocel.events = _normalize_start_timestamp_column(ocel.events.copy())
+    return ocel
 
 
 def read_ocel(path: str) -> Any:

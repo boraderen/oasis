@@ -38,12 +38,22 @@ def get_log_metadata(log: pd.DataFrame, filename: str) -> dict[str, Any]:
 
 
 def _durations_for_activity(events: pd.DataFrame, activity_key: str, timestamp_key: str = "time:timestamp") -> dict[str, dict[str, float]]:
+    normalized_events = events
     has_start_timestamp = "start_timestamp" in events.columns
+    if has_start_timestamp:
+        normalized_events = events.copy()
+        normalized_events[timestamp_key] = pd.to_datetime(normalized_events[timestamp_key], errors="coerce", utc=True)
+        normalized_events["start_timestamp"] = pd.to_datetime(
+            normalized_events["start_timestamp"],
+            errors="coerce",
+            utc=True,
+        )
+
     durations: dict[str, dict[str, float]] = {}
-    activities = events[activity_key].dropna().astype(str).unique()
+    activities = normalized_events[activity_key].dropna().astype(str).unique()
 
     for activity in activities:
-        activity_events = events[events[activity_key].astype(str) == activity]
+        activity_events = normalized_events[normalized_events[activity_key].astype(str) == activity]
         values: list[float] = []
         if has_start_timestamp:
             for _, event in activity_events.iterrows():
