@@ -16,7 +16,7 @@ Oasis supports both case-centric process mining and object-centric process minin
 - Flatten OCEL data for case-centric analysis
 - Run AutoPM and object-centric analysis workflows from the same workspace
 
-Main workspace areas in the UI:
+Main workspace areas:
 
 - `Data`
 - `Flatten OCEL`
