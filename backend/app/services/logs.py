@@ -39,7 +39,12 @@ def get_log_metadata(log: pd.DataFrame, filename: str) -> dict[str, Any]:
 
 def _durations_for_activity(events: pd.DataFrame, activity_key: str, timestamp_key: str = "time:timestamp") -> dict[str, dict[str, float]]:
     normalized_events = events
-    has_start_timestamp = "start_timestamp" in events.columns
+    duration_seconds_col = next(
+        (col for col in events.columns if col.lower() == "duration:seconds"),
+        None,
+    )
+    has_duration_seconds = duration_seconds_col is not None
+    has_start_timestamp = not has_duration_seconds and "start_timestamp" in events.columns
     if has_start_timestamp:
         normalized_events = events.copy()
         normalized_events[timestamp_key] = pd.to_datetime(normalized_events[timestamp_key], errors="coerce", utc=True)
@@ -55,7 +60,15 @@ def _durations_for_activity(events: pd.DataFrame, activity_key: str, timestamp_k
     for activity in activities:
         activity_events = normalized_events[normalized_events[activity_key].astype(str) == activity]
         values: list[float] = []
-        if has_start_timestamp:
+        if has_duration_seconds:
+            for _, event in activity_events.iterrows():
+                try:
+                    duration = float(event[duration_seconds_col])
+                except (TypeError, ValueError):
+                    continue
+                if duration >= 0:
+                    values.append(duration)
+        elif has_start_timestamp:
             for _, event in activity_events.iterrows():
                 try:
                     duration = (event[timestamp_key] - event["start_timestamp"]).total_seconds()
@@ -164,7 +177,19 @@ def get_log_insights(log: pd.DataFrame) -> dict[str, Any]:
         activity_case_counts[activity] = int(count)
 
     activity_durations = _durations_for_activity(log, "concept:name")
-    case_durations = list(pm4py.stats.get_all_case_durations(log))
+
+    case_groups = list(log.groupby("case:concept:name", sort=False))
+    case_to_variant: dict[str, tuple[str, ...]] = {}
+    case_id_to_duration: dict[str, float] = {}
+    for case_id, case_events in case_groups:
+        cid = str(case_id)
+        case_to_variant[cid] = tuple(case_events["concept:name"].astype(str).tolist())
+        timestamps = pd.to_datetime(case_events["time:timestamp"], errors="coerce", utc=True).dropna()
+        case_id_to_duration[cid] = (
+            (timestamps.max() - timestamps.min()).total_seconds() if not timestamps.empty else 0.0
+        )
+
+    case_durations = list(case_id_to_duration.values())
     if case_durations:
         log_avg_tpt = round(statistics.mean(case_durations), 2)
         log_min_tpt = round(min(case_durations), 2)
@@ -172,11 +197,6 @@ def get_log_insights(log: pd.DataFrame) -> dict[str, Any]:
         log_median_tpt = round(statistics.median(case_durations), 2)
     else:
         log_avg_tpt = log_min_tpt = log_max_tpt = log_median_tpt = 0
-
-    case_groups = list(log.groupby("case:concept:name", sort=False))
-    case_to_variant: dict[str, tuple[str, ...]] = {}
-    for case_id, case_events in case_groups:
-        case_to_variant[str(case_id)] = tuple(case_events["concept:name"].astype(str).tolist())
 
     variant_edge_samples = _edge_duration_samples(log)
     raw_regular_dfg, _, _ = pm4py.discover_dfg(log)
@@ -186,15 +206,14 @@ def get_log_insights(log: pd.DataFrame) -> dict[str, Any]:
 
     variants = pm4py.get_variants(log)
     trace_variants: list[dict[str, Any]] = []
-    case_ids = list(log["case:concept:name"].astype(str).unique())
     total_cases = max(num_cases, 1)
     for variant, count in variants.items():
         activities = list(variant) if isinstance(variant, tuple) else str(variant).split(",")
         variant_key = tuple(activities)
         variant_durations = [
-            case_durations[index]
-            for index, case_id in enumerate(case_ids)
-            if index < len(case_durations) and case_to_variant.get(case_id) == variant_key
+            duration
+            for case_id, duration in case_id_to_duration.items()
+            if case_to_variant.get(case_id) == variant_key
         ]
         if variant_durations:
             avg_tpt = round(statistics.mean(variant_durations), 2)
