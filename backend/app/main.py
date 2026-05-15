@@ -33,3 +33,9 @@ app.include_router(dashboard.router)
 def root() -> dict:
     """Health and welcome response."""
     return {"message": "Oasis API is running", "status": "success"}
+
+
+@app.get("/health")
+@app.head("/health")
+def health():
+    return {"status": "ok"}
