@@ -93,10 +93,18 @@ export default function DiscoveryPage() {
   };
 
   useEffect(() => {
-    if (!state.selectedLogId && logs.length) {
-      saveState({ selectedLogId: logs.at(-1)?.id ?? null });
+    if (!logsQuery.data) {
+      return;
     }
-  }, [logs, saveState, state.selectedLogId]);
+    const hasValidSelection = state.selectedLogId != null && logs.some((log) => log.id === state.selectedLogId);
+    if (hasValidSelection) {
+      return;
+    }
+    const fallbackId = logs.at(-1)?.id ?? null;
+    if (state.selectedLogId !== fallbackId) {
+      saveState({ selectedLogId: fallbackId });
+    }
+  }, [logs, logsQuery.data, saveState, state.selectedLogId]);
 
   const runDiscovery = async (algorithm: DiscoveryAlgorithm) => {
     if (!state.selectedLogId) {
