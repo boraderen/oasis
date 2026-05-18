@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { metricPercent } from "@/components/analysis-ui";
 import { PageShell } from "@/components/page-shell";
 import { ProcessModelViewer } from "@/components/process-model-viewer";
 import { useAssetList } from "@/hooks/use-asset-list";
-import { apiRequest, persistPageState } from "@/lib/api";
+import { apiRequest, persistPageState, uploadFile } from "@/lib/api";
 import type { DiscoveryAlgorithm, DiscoveryResult } from "@/lib/types";
 import { useUiStore } from "@/store/ui-store";
 
@@ -27,11 +28,15 @@ function buildBpmnFilename(filename: string, algorithm: DiscoveryAlgorithm) {
   return `${baseName}-${algorithm}.bpmn`;
 }
 
+type SaveFormat = "pnml" | "bpmn";
+
 export default function DiscoveryPage() {
   const state = useUiStore((store) => store.discovery);
   const setPageState = useUiStore((store) => store.setPageState);
   const logsQuery = useAssetList("log");
   const logs = useMemo(() => logsQuery.data ?? [], [logsQuery.data]);
+  const queryClient = useQueryClient();
+  const [savingAlgorithm, setSavingAlgorithm] = useState<DiscoveryAlgorithm | null>(null);
 
   const saveState = useCallback(
     (patch: Partial<typeof state>) => {
@@ -41,6 +46,51 @@ export default function DiscoveryPage() {
     },
     [setPageState, state],
   );
+
+  const saveModelToWorkspace = async (algorithm: DiscoveryAlgorithm, format: SaveFormat) => {
+    const result = state.results[algorithm];
+    if (!result) {
+      return;
+    }
+    const content = format === "pnml" ? result.pnml_content : result.bpmn_content;
+    if (!content) {
+      saveState({ error: `No ${format.toUpperCase()} content available to save.` });
+      return;
+    }
+
+    const defaultName = `${(result.log_metadata.filename || "model").replace(/\.[^.]+$/, "")}-${algorithm}`;
+    const rawName = window.prompt(`Save ${algorithmLabels[algorithm]} model as (${format.toUpperCase()}):`, defaultName);
+    if (rawName === null) {
+      return;
+    }
+    const trimmed = rawName.trim();
+    if (!trimmed) {
+      saveState({ error: "Model name cannot be empty." });
+      return;
+    }
+
+    const baseName = trimmed.replace(new RegExp(`\\.${format}$`, "i"), "");
+    const filename = `${baseName}.${format}`;
+    const mimeType = "application/xml";
+    const file = new File([content], filename, { type: mimeType });
+
+    setSavingAlgorithm(algorithm);
+    saveState({ error: null, successMessage: null });
+    try {
+      await uploadFile("/api/assets/models", file);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["assets", "model"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard", "summary"] }),
+      ]);
+      saveState({ successMessage: `Saved ${filename} to workspace models.` });
+    } catch (requestError) {
+      saveState({
+        error: requestError instanceof Error ? requestError.message : "Failed to save model to workspace.",
+      });
+    } finally {
+      setSavingAlgorithm(null);
+    }
+  };
 
   useEffect(() => {
     if (!state.selectedLogId && logs.length) {
@@ -147,9 +197,31 @@ export default function DiscoveryPage() {
               stageClassName="white-stage algorithm-stage"
               fitKey={`${algorithm}-${result?.log_metadata.filename ?? "empty"}`}
               actions={
-                <button className="primary-button" onClick={() => void runDiscovery(algorithm)} disabled={loading}>
-                  {loading ? "Running…" : "Discover"}
-                </button>
+                <>
+                  <button className="primary-button" onClick={() => void runDiscovery(algorithm)} disabled={loading}>
+                    {loading ? "Running…" : "Discover"}
+                  </button>
+                  {result?.pnml_content ? (
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={savingAlgorithm === algorithm}
+                      onClick={() => void saveModelToWorkspace(algorithm, "pnml")}
+                    >
+                      {savingAlgorithm === algorithm ? "Saving…" : "Save PNML"}
+                    </button>
+                  ) : null}
+                  {result?.bpmn_content ? (
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={savingAlgorithm === algorithm}
+                      onClick={() => void saveModelToWorkspace(algorithm, "bpmn")}
+                    >
+                      {savingAlgorithm === algorithm ? "Saving…" : "Save BPMN"}
+                    </button>
+                  ) : null}
+                </>
               }
             >
               <DiscoveryControls
