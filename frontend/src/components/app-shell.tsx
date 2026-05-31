@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -49,37 +49,57 @@ function isRouteActive(pathname: string, href: string) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useSession();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="app-shell">
+    <div className={sidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
       <aside className="sidebar" aria-label="Primary navigation">
         <div className="sidebar-frame">
-          <Link href="/data" className="sidebar-brand-link" aria-label="Oasis">
-            <Image className="sidebar-brand-icon" src={withBasePath("/oasis.png")} alt="Oasis" width={36} height={36} />
-          </Link>
+          <div className="sidebar-header">
+            <Link href="/data" className="sidebar-brand-link" aria-label="Oasis">
+              <Image className="sidebar-brand-icon" src={withBasePath("/oasis.png")} alt="Oasis" width={36} height={36} />
+            </Link>
 
-          <nav className="sidebar-nav" aria-label="Main sections">
-            {navigationSections.map((section) => (
-              <div key={section.heading} className="sidebar-nav-block">
-                <p className="sidebar-nav-heading">{section.heading}</p>
-                {section.items.map((item) => {
-                  const active = isRouteActive(pathname, item.href);
-                  return (
-                    <Link key={item.href} href={item.href} className={active ? "nav-link active" : "nav-link"}>
-                      <span className="nav-link-label">{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
-
-          <div className="sidebar-user-inline">
-            <strong>{user?.username ?? "guest"}</strong>
-            <button className="secondary-button sidebar-signout" type="button" onClick={() => void logout()}>
-              Sign out
+            <button
+              className="sidebar-toggle"
+              type="button"
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              aria-expanded={!sidebarCollapsed}
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                {sidebarCollapsed ? <path d="M9 6l6 6-6 6" /> : <path d="M15 6l-6 6 6 6" />}
+              </svg>
             </button>
           </div>
+
+          {!sidebarCollapsed ? (
+            <>
+              <nav className="sidebar-nav" aria-label="Main sections">
+                {navigationSections.map((section) => (
+                  <div key={section.heading} className="sidebar-nav-block">
+                    <p className="sidebar-nav-heading">{section.heading}</p>
+                    {section.items.map((item) => {
+                      const active = isRouteActive(pathname, item.href);
+                      return (
+                        <Link key={item.href} href={item.href} className={active ? "nav-link active" : "nav-link"}>
+                          <span className="nav-link-label">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ))}
+              </nav>
+
+              <div className="sidebar-user-inline">
+                <strong>{user?.username ?? "guest"}</strong>
+                <button className="secondary-button sidebar-signout" type="button" onClick={() => void logout()}>
+                  Sign out
+                </button>
+              </div>
+            </>
+          ) : null}
         </div>
       </aside>
 

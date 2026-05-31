@@ -61,7 +61,6 @@ def apply_session_cookie(response: Response, user: User) -> None:
         "path": "/",
         "samesite": settings.session_cookie_samesite,
         "secure": settings.session_cookie_secure,
-        "max_age": settings.session_duration_minutes * 60,
     }
     if settings.session_cookie_domain:
         cookie_options["domain"] = settings.session_cookie_domain

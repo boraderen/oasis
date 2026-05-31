@@ -1,5 +1,5 @@
 import type { AnchorHTMLAttributes, ImgHTMLAttributes, ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { AppShell } from "@/components/app-shell";
 
@@ -61,5 +61,24 @@ describe("AppShell", () => {
     expect(screen.queryByRole("link", { name: "Apps" })).not.toBeInTheDocument();
     expect(screen.queryByRole("searchbox", { name: "Search" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Inbox" })).not.toBeInTheDocument();
+  });
+
+  it("collapses and expands the sidebar", () => {
+    render(
+      <AppShell>
+        <div>Content</div>
+      </AppShell>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+
+    expect(screen.queryByRole("navigation", { name: "Main sections" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sign out" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+
+    expect(screen.getByRole("navigation", { name: "Main sections" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   });
 });
