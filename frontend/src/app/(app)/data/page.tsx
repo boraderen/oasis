@@ -13,10 +13,6 @@ type AssetBucket = Record<AssetKind, AssetSummary[]>;
 
 const initialAssets: AssetBucket = { log: [], model: [], ocel: [] };
 
-function formatDate(value: string) {
-  return new Date(value).toLocaleString();
-}
-
 export default function DataPage() {
   const [loading, setLoading] = useState<Record<AssetKind, boolean>>({
     log: false,
@@ -120,7 +116,6 @@ export default function DataPage() {
         <section className="data-upload-strip">
           <div className="data-upload-copy">
             <h3>Add Files</h3>
-            <p>Keep the workspace lean: upload only the logs and models you want to work with.</p>
           </div>
           <div className="data-upload-actions">
             <button className="data-upload-button" type="button" disabled={loading.log} onClick={() => logInputRef.current?.click()}>
@@ -147,7 +142,7 @@ export default function DataPage() {
 
         <AssetGroup
           title="Event Logs"
-          helper="XES and CSV logs for exploration, discovery, conformance, and AutoPM."
+          formats=".xes, .csv"
           emptyMessage="No event logs yet."
           assets={assets.log}
           onDelete={(asset) => void handleDelete("log", asset)}
@@ -162,7 +157,7 @@ export default function DataPage() {
 
         <AssetGroup
           title="Process Models"
-          helper="PNML and BPMN models for conformance and comparison."
+          formats=".pnml, .bpmn"
           emptyMessage="No process models yet."
           assets={assets.model}
           onDelete={(asset) => void handleDelete("model", asset)}
@@ -177,7 +172,7 @@ export default function DataPage() {
 
         <AssetGroup
           title="OCELs"
-          helper="JSONOCEL, XMLOCEL, and CSV-based object-centric event logs."
+          formats=".jsonocel, .xmlocel, .csv"
           emptyMessage="No OCEL files yet."
           assets={assets.ocel}
           onDelete={(asset) => void handleDelete("ocel", asset)}
@@ -196,14 +191,14 @@ export default function DataPage() {
 
 function AssetGroup({
   title,
-  helper,
+  formats,
   emptyMessage,
   assets,
   onDelete,
   renderStats,
 }: {
   title: string;
-  helper: string;
+  formats: string;
   emptyMessage: string;
   assets: AssetSummary[];
   onDelete: (asset: AssetSummary) => void;
@@ -214,7 +209,7 @@ function AssetGroup({
       <header className="data-group-header">
         <div>
           <h3>{title}</h3>
-          <p>{helper}</p>
+          <span className="data-group-formats">{formats}</span>
         </div>
         <span className="data-group-count">{assets.length}</span>
       </header>
@@ -227,10 +222,7 @@ function AssetGroup({
             <li key={asset.id} className="data-row">
               <div className="data-row-copy">
                 <strong>{asset.filename}</strong>
-                <div className="data-row-meta">
-                  <span>{formatDate(asset.created_at)}</span>
-                  {renderStats(asset)}
-                </div>
+                <div className="data-row-meta">{renderStats(asset)}</div>
               </div>
               <button className="data-delete-button" type="button" onClick={() => onDelete(asset)}>
                 Delete

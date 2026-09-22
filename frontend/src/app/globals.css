@@ -114,8 +114,8 @@ pre {
 }
 
 .sidebar-brand-icon {
-  width: 50px;
-  height: 50px;
+  width: 55px;
+  height: 55px;
   object-fit: contain;
 }
 
@@ -554,12 +554,21 @@ pre {
   color: #e67e22;
 }
 
-.data-upload-copy p,
-.data-group-header p,
 .data-empty {
   color: var(--muted);
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.data-group-header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.data-group-formats {
+  color: var(--muted);
+  font-size: 0.76rem;
 }
 
 .data-upload-actions {
